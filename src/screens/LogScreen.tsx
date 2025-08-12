@@ -1,10 +1,11 @@
 import React, { useMemo, useRef, useState } from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View, StyleSheet, Platform, ScrollView, KeyboardAvoidingView } from 'react-native';
 import { Button, Text, SegmentedButtons, Modal, Portal, TextInput, Card, Avatar, Chip } from 'react-native-paper';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { addToStash, insertFeed } from '../db';
 import { useAppContext } from '../context/AppContext';
 import { FeedEntry, FeedType, BreastSide } from '../types';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function LogScreen() {
   const { activeBabyId } = useAppContext();
@@ -95,9 +96,9 @@ export default function LogScreen() {
               ]}
               style={{ marginBottom: 12 }}
             />
-            <View style={{ flexDirection: 'row', gap: 8, marginBottom: 8 }}>
-              <Button mode="contained" onPress={startTimer}>Start</Button>
-              <Button mode="outlined" onPress={stopTimer}>Stop</Button>
+            <View style={{ flexDirection: 'row', marginBottom: 8, justifyContent: 'space-between' }}>
+              <Button compact mode="contained" onPress={startTimer}>Start</Button>
+              <Button compact mode="outlined" onPress={stopTimer}>Stop</Button>
               {timerSec > 0 ? <Text style={{ alignSelf: 'center' }}>{Math.floor(timerSec / 60)}:{String(timerSec % 60).padStart(2, '0')}</Text> : null}
             </View>
             <TextInput
@@ -114,9 +115,9 @@ export default function LogScreen() {
       case 'pump':
         return (
           <View>
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 8 }}>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginBottom: 8 }}>
               {[60, 90, 120, 150, 180].map((n) => (
-                <Chip key={n} onPress={() => applyPreset(n)}>{n} ml</Chip>
+                <Chip key={n} onPress={() => applyPreset(n)} style={{ marginRight: 8, marginBottom: 8 }}>{n} ml</Chip>
               ))}
             </View>
             <TextInput
@@ -150,46 +151,50 @@ export default function LogScreen() {
   }, [type, side, durationMin, quantityMl, foodName, foodAmountGrams, timerSec]);
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}> 
       <Text variant="titleLarge" style={{ marginBottom: 16 }}>Quick Log</Text>
       <View style={styles.actions}>
         <Card style={styles.card} onPress={() => showForm('breastmilk')}>
-          <Card.Title title="Breastmilk" left={(p) => <Avatar.Icon {...p} icon="baby-bottle-outline" />} />
+          <Card.Title title="Breastmilk" titleVariant="titleSmall" titleStyle={styles.cardTitle} left={(p) => <Avatar.Icon {...p} size={24} icon="baby-bottle-outline" />} />
         </Card>
         <Card style={styles.card} onPress={() => showForm('formula')}>
-          <Card.Title title="Formula" left={(p) => <Avatar.Icon {...p} icon="cup-water" />} />
+          <Card.Title title="Formula" titleVariant="titleSmall" titleStyle={styles.cardTitle} left={(p) => <Avatar.Icon {...p} size={24} icon="cup-water" />} />
         </Card>
         <Card style={styles.card} onPress={() => showForm('water')}>
-          <Card.Title title="Water" left={(p) => <Avatar.Icon {...p} icon="water" />} />
+          <Card.Title title="Water" titleVariant="titleSmall" titleStyle={styles.cardTitle} left={(p) => <Avatar.Icon {...p} size={24} icon="water" />} />
         </Card>
         <Card style={styles.card} onPress={() => showForm('solid')}>
-          <Card.Title title="Solid food" left={(p) => <Avatar.Icon {...p} icon="food-apple" />} />
+          <Card.Title title="Solid food" titleVariant="titleSmall" titleStyle={styles.cardTitle} left={(p) => <Avatar.Icon {...p} size={24} icon="food-apple" />} />
         </Card>
         <Card style={styles.card} onPress={() => showForm('pump')}>
-          <Card.Title title="Pump" left={(p) => <Avatar.Icon {...p} icon="breast" />} />
+          <Card.Title title="Pump" titleVariant="titleSmall" titleStyle={styles.cardTitle} left={(p) => <Avatar.Icon {...p} size={24} icon="cup-water" />} />
         </Card>
       </View>
 
       <Portal>
         <Modal visible={visible} onDismiss={() => setVisible(false)} contentContainerStyle={styles.modal}>
-          <Text variant="titleLarge" style={{ marginBottom: 8 }}>Add {type}</Text>
-          <View style={{ marginBottom: 12 }}>
-            <DateTimePicker value={date} mode="datetime" onChange={(_, d) => d && setDate(d)} />
-          </View>
+          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+            <ScrollView contentContainerStyle={{ paddingBottom: 12 }}>
+              <Text variant="titleLarge" style={{ marginBottom: 8 }}>Add {type}</Text>
+              <View style={{ marginBottom: 12 }}>
+                <DateTimePicker value={date} mode="datetime" onChange={(_, d) => d && setDate(d)} />
+              </View>
 
-          {typeSpecificFields}
+              {typeSpecificFields}
 
-          <TextInput
-            label="Notes"
-            value={notes}
-            onChangeText={setNotes}
-            multiline
-            style={{ marginBottom: 12 }}
-          />
-          <Button mode="contained" onPress={onSave}>Save</Button>
+              <TextInput
+                label="Notes"
+                value={notes}
+                onChangeText={setNotes}
+                multiline
+                style={{ marginBottom: 12 }}
+              />
+              <Button mode="contained" onPress={onSave}>Save</Button>
+            </ScrollView>
+          </KeyboardAvoidingView>
         </Modal>
       </Portal>
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -198,9 +203,10 @@ const styles = StyleSheet.create({
   actions: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 12,
+    justifyContent: 'space-between',
   },
-  card: { flexBasis: '48%' },
+  card: { width: '48%', marginBottom: 12 },
+  cardTitle: { fontSize: 14 },
   row: { marginBottom: 12 },
-  modal: { backgroundColor: 'white', padding: 16, margin: 16, borderRadius: 16 },
+  modal: { backgroundColor: 'white', padding: 16, margin: 16, borderRadius: 16, maxHeight: '85%' },
 });
