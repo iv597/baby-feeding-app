@@ -1,11 +1,12 @@
-import React, { useEffect, useState } from 'react';
-import { View, FlatList, StyleSheet } from 'react-native';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { View, StyleSheet, SectionList, SectionListData, SectionListRenderItemInfo, RefreshControl } from 'react-native';
 import { IconButton, List, Text } from 'react-native-paper';
 import { deleteFeed, getRecentFeeds } from '../db';
 import { FeedEntry } from '../types';
-import { format } from 'date-fns';
+import { format, isToday, isYesterday } from 'date-fns';
 import { useAppContext } from '../context/AppContext';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
 
 function renderSubtitle(item: FeedEntry): string {
   switch (item.type) {
@@ -22,19 +23,60 @@ function renderSubtitle(item: FeedEntry): string {
   }
 }
 
+type HistorySection = { dateKey: string; title: string; data: FeedEntry[] };
+
 export default function HistoryScreen() {
   const { activeBabyId } = useAppContext();
-  const [data, setData] = useState<FeedEntry[]>([]);
+  const [entries, setEntries] = useState<FeedEntry[]>([]);
+  const [refreshing, setRefreshing] = useState(false);
 
-  const refresh = async () => {
+  const refresh = useCallback(async () => {
     if (!activeBabyId) return;
-    const rows = await getRecentFeeds(activeBabyId, 100);
-    setData(rows);
-  };
+    setRefreshing(true);
+    try {
+      const rows = await getRecentFeeds(activeBabyId, 200);
+      setEntries(rows);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [activeBabyId]);
 
   useEffect(() => {
     refresh();
-  }, [activeBabyId]);
+  }, [activeBabyId, refresh]);
+
+  useFocusEffect(
+    useCallback(() => {
+      // Refresh whenever the screen gains focus
+      refresh();
+    }, [refresh])
+  );
+
+  const sections: HistorySection[] = useMemo(() => {
+    const map = new Map<string, FeedEntry[]>();
+    for (const item of entries) {
+      const ts = item.createdAt ?? Date.now();
+      const key = format(ts, 'yyyy-MM-dd');
+      const list = map.get(key) ?? [];
+      list.push(item);
+      map.set(key, list);
+    }
+    const result: HistorySection[] = Array.from(map.entries())
+      .map(([key, items]) => {
+        const date = new Date(items[0]?.createdAt ?? Date.now());
+        const title = isToday(date) ? 'Today' : isYesterday(date) ? 'Yesterday' : format(date, 'PPPP');
+        // Sort items in a section descending by time
+        items.sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0));
+        return {
+          dateKey: key,
+          title,
+          data: items,
+        };
+      })
+      // Sort descending by date
+      .sort((a, b) => b.dateKey.localeCompare(a.dateKey));
+    return result;
+  }, [entries]);
 
   const handleDelete = async (id?: number) => {
     if (!id) return;
@@ -42,26 +84,46 @@ export default function HistoryScreen() {
     refresh();
   };
 
+  const renderItem = ({ item }: SectionListRenderItemInfo<FeedEntry>) => (
+    <List.Item
+      title={item.type}
+      description={`${renderSubtitle(item)}  ·  ${format(item.createdAt ?? Date.now(), 'PP p')}`}
+      left={(props) => (
+        <List.Icon
+          {...props}
+          icon={
+            item.type === 'breastmilk'
+              ? 'baby-bottle-outline'
+              : item.type === 'formula'
+              ? 'cup-water'
+              : item.type === 'water'
+              ? 'water'
+              : 'food-apple'
+          }
+        />
+      )}
+      right={(props) => <IconButton {...props} icon="delete" onPress={() => handleDelete(item.id)} />}
+    />
+  );
+
+  const renderSectionHeader = ({ section }: { section: SectionListData<FeedEntry> & HistorySection }) => (
+    <View style={styles.sectionHeader}>
+      <Text variant="titleMedium">{(section as HistorySection).title}</Text>
+    </View>
+  );
+
   return (
     <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
       <Text variant="titleLarge" style={{ marginBottom: 8 }}>Recent</Text>
-      <FlatList
-        data={data}
-        keyExtractor={(item, idx) => (item.id ? String(item.id) : `row-${idx}`)}
-        renderItem={({ item }) => (
-          <List.Item
-            title={item.type}
-            description={`${renderSubtitle(item)}  ·  ${format(item.createdAt ?? Date.now(), 'PP p')}`}
-            left={(props) => <List.Icon {...props} icon={
-              item.type === 'breastmilk' ? 'baby-bottle-outline' :
-              item.type === 'formula' ? 'cup-water' :
-              item.type === 'water' ? 'water' : 'food-apple'} />}
-            right={(props) => (
-              <IconButton {...props} icon="delete" onPress={() => handleDelete(item.id)} />
-            )}
-          />
-        )}
-        ItemSeparatorComponent={() => <View style={{ height: 1, backgroundColor: '#eee' }} />}
+      <SectionList
+        sections={sections}
+        keyExtractor={(item, idx) => (item.id ? String(item.id) : `${item.type}-${item.createdAt}-${idx}`)}
+        renderItem={renderItem}
+        renderSectionHeader={renderSectionHeader}
+        stickySectionHeadersEnabled
+        ItemSeparatorComponent={() => <View style={styles.separator} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} />}
+        contentContainerStyle={{ paddingBottom: 16 }}
       />
     </SafeAreaView>
   );
@@ -69,4 +131,13 @@ export default function HistoryScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 16 },
+  sectionHeader: {
+    backgroundColor: '#00000008',
+    paddingVertical: 6,
+    paddingHorizontal: 8,
+    borderRadius: 6,
+    marginTop: 8,
+    marginBottom: 4,
+  },
+  separator: { height: 1, backgroundColor: '#eee' },
 });
