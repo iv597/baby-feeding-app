@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { View, StyleSheet, SectionList, SectionListData, SectionListRenderItemInfo, RefreshControl } from 'react-native';
+import { View, StyleSheet, SectionList, SectionListData, SectionListRenderItemInfo, RefreshControl, Alert } from 'react-native';
 import { IconButton, List, Text } from 'react-native-paper';
 import { deleteFeed, getRecentFeeds } from '../db';
 import { FeedEntry } from '../types';
@@ -89,6 +89,14 @@ export default function HistoryScreen() {
     refresh();
   };
 
+  const requestDelete = (id?: number) => {
+    if (!id) return;
+    Alert.alert('Delete log', 'Are you sure you want to delete?', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Delete', style: 'destructive', onPress: () => handleDelete(id) },
+    ]);
+  };
+
   const renderItem = ({ item }: SectionListRenderItemInfo<FeedEntry>) => (
     <List.Item
       style={styles.item}
@@ -112,7 +120,7 @@ export default function HistoryScreen() {
           }
         />
       )}
-      right={(props) => <IconButton {...props} icon="delete" onPress={() => handleDelete(item.id)} />}
+      right={(props) => <IconButton {...props} icon="delete" onPress={() => requestDelete(item.id)} />}
     />
   );
 
