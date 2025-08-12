@@ -138,7 +138,7 @@ export default function HistoryScreen() {
         keyExtractor={(item, idx) => (item.id ? String(item.id) : `${item.type}-${item.createdAt}-${idx}`)}
         renderItem={renderItem}
         renderSectionHeader={renderSectionHeader}
-        stickySectionHeadersEnabled
+        stickySectionHeadersEnabled={false}
         ItemSeparatorComponent={() => <View style={styles.separator} />}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} />}
         contentContainerStyle={{ paddingBottom: 16 }}
