@@ -3,7 +3,7 @@ import { View, StyleSheet, SectionList, SectionListData, SectionListRenderItemIn
 import { IconButton, List, Text } from 'react-native-paper';
 import { deleteFeed, getRecentFeeds } from '../db';
 import { FeedEntry } from '../types';
-import { format } from 'date-fns';
+import { format, isToday, isYesterday } from 'date-fns';
 import { useAppContext } from '../context/AppContext';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
@@ -62,11 +62,17 @@ export default function HistoryScreen() {
       map.set(key, list);
     }
     const result: HistorySection[] = Array.from(map.entries())
-      .map(([key, items]) => ({
-        dateKey: key,
-        title: format(new Date(key), 'PPPP'),
-        data: items,
-      }))
+      .map(([key, items]) => {
+        const date = new Date(items[0]?.createdAt ?? Date.now());
+        const title = isToday(date) ? 'Today' : isYesterday(date) ? 'Yesterday' : format(date, 'PPPP');
+        // Sort items in a section descending by time
+        items.sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0));
+        return {
+          dateKey: key,
+          title,
+          data: items,
+        };
+      })
       // Sort descending by date
       .sort((a, b) => b.dateKey.localeCompare(a.dateKey));
     return result;
