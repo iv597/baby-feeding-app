@@ -23,6 +23,10 @@ function renderSubtitle(item: FeedEntry): string {
   }
 }
 
+function capitalize(s: string): string {
+  return s.length ? s[0].toUpperCase() + s.slice(1) : s;
+}
+
 type HistorySection = { dateKey: string; title: string; data: FeedEntry[] };
 
 export default function HistoryScreen() {
@@ -86,11 +90,16 @@ export default function HistoryScreen() {
 
   const renderItem = ({ item }: SectionListRenderItemInfo<FeedEntry>) => (
     <List.Item
-      title={item.type}
-      description={`${renderSubtitle(item)}  ·  ${format(item.createdAt ?? Date.now(), 'PP p')}`}
+      style={styles.item}
+      title={capitalize(item.type)}
+      titleStyle={styles.itemTitle}
+      description={renderSubtitle(item)}
+      descriptionNumberOfLines={1}
+      descriptionStyle={styles.itemDesc}
       left={(props) => (
         <List.Icon
           {...props}
+          style={[props.style, { margin: 0 }]}
           icon={
             item.type === 'breastmilk'
               ? 'baby-bottle-outline'
@@ -139,5 +148,8 @@ const styles = StyleSheet.create({
     marginTop: 8,
     marginBottom: 4,
   },
-  separator: { height: 1, backgroundColor: '#eee' },
+  item: { paddingVertical: 6 },
+  itemTitle: { fontSize: 14 },
+  itemDesc: { fontSize: 12, opacity: 0.8 },
+  separator: { height: StyleSheet.hairlineWidth, backgroundColor: '#eee' },
 });
