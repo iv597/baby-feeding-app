@@ -5,6 +5,7 @@ import { getFeedsBetween } from '../db';
 import { DailyTotals, FeedEntry } from '../types';
 import { startOfDay, subDays, endOfDay, format } from 'date-fns';
 import { useAppContext } from '../context/AppContext';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 function computeDailyTotals(entries: FeedEntry[]): DailyTotals[] {
   const map = new Map<string, DailyTotals>();
@@ -55,7 +56,7 @@ export default function StatsScreen() {
   }, [activeBabyId]);
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
       <Text variant="titleLarge" style={{ marginBottom: 8 }}>Last 7 days</Text>
       {totals.map((t) => (
         <Card key={t.dateKey} style={{ marginBottom: 8 }}>
@@ -68,7 +69,7 @@ export default function StatsScreen() {
           </Card.Content>
         </Card>
       ))}
-    </View>
+    </SafeAreaView>
   );
 }
 

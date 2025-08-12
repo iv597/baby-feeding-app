@@ -1,15 +1,28 @@
 import * as SQLite from 'expo-sqlite';
 import { BabyProfile, FeedEntry, ThemeMode, StashItem } from './types';
 import { generateId, nowMs } from './utils';
+import { Platform } from 'react-native';
 
-const db = SQLite.openDatabaseSync('baby_feed.db');
+// Lazily open the database. Use async DB on web to avoid SharedArrayBuffer requirements.
+let _dbPromise: Promise<SQLite.SQLiteDatabase> | null = null;
+async function getDb(): Promise<SQLite.SQLiteDatabase> {
+  if (_dbPromise) return _dbPromise;
+  if (Platform.OS === 'web') {
+    _dbPromise = SQLite.openDatabaseAsync('baby_feed.db');
+  } else {
+    _dbPromise = Promise.resolve(SQLite.openDatabaseSync('baby_feed.db'));
+  }
+  return _dbPromise;
+}
 
 async function columnExists(table: string, column: string): Promise<boolean> {
+  const db = await getDb();
   const info = await db.getAllAsync<{ name: string }>(`PRAGMA table_info(${table})`);
   return info.some((r) => r.name === column);
 }
 
 export async function initializeDatabase(): Promise<void> {
+  const db = await getDb();
   await db.execAsync(`
     PRAGMA journal_mode = WAL;
     CREATE TABLE IF NOT EXISTS babies (
@@ -109,17 +122,21 @@ export async function initializeDatabase(): Promise<void> {
 
 // Cloud/settings helpers
 export async function getHouseholdId(): Promise<string | null> {
+  const db = await getDb();
   const s = await db.getFirstAsync<{ householdId: string | null }>(`SELECT householdId FROM app_settings WHERE id = 1`);
   return s?.householdId ?? null;
 }
 export async function setHouseholdId(householdId: string | null): Promise<void> {
+  const db = await getDb();
   await db.runAsync(`UPDATE app_settings SET householdId = ? WHERE id = 1`, [householdId]);
 }
 export async function getDeviceId(): Promise<string | null> {
+  const db = await getDb();
   const s = await db.getFirstAsync<{ deviceId: string | null }>(`SELECT deviceId FROM app_settings WHERE id = 1`);
   return s?.deviceId ?? null;
 }
 export async function ensureDeviceId(): Promise<string> {
+  const db = await getDb();
   let id = await getDeviceId();
   if (!id) {
     id = generateId('dev_');
@@ -128,41 +145,51 @@ export async function ensureDeviceId(): Promise<string> {
   return id;
 }
 export async function getLastSyncAt(): Promise<number> {
+  const db = await getDb();
   const s = await db.getFirstAsync<{ lastSyncAt: number | null }>(`SELECT lastSyncAt FROM app_settings WHERE id = 1`);
   return s?.lastSyncAt ?? 0;
 }
 export async function setLastSyncAt(ts: number): Promise<void> {
+  const db = await getDb();
   await db.runAsync(`UPDATE app_settings SET lastSyncAt = ? WHERE id = 1`, [ts]);
 }
 export async function getActiveBabyId(): Promise<number | null> {
+  const db = await getDb();
   const s = await db.getFirstAsync<{ activeBabyId: number | null }>(`SELECT activeBabyId FROM app_settings WHERE id = 1`);
   return s?.activeBabyId ?? null;
 }
 export async function setActiveBabyId(babyId: number): Promise<void> {
+  const db = await getDb();
   await db.runAsync(`UPDATE app_settings SET activeBabyId = ? WHERE id = 1`, [babyId]);
 }
 export async function getThemeMode(): Promise<ThemeMode> {
+  const db = await getDb();
   const s = await db.getFirstAsync<{ theme: string }>(`SELECT theme FROM app_settings WHERE id = 1`);
   return (s?.theme as ThemeMode) ?? 'light';
 }
 export async function setThemeMode(theme: ThemeMode): Promise<void> {
+  const db = await getDb();
   await db.runAsync(`UPDATE app_settings SET theme = ? WHERE id = 1`, [theme]);
 }
 
 // Reminder settings
 export async function getFeedReminderSettings(): Promise<{ enabled: boolean; minutes: number }> {
+  const db = await getDb();
   const s = await db.getFirstAsync<{ feedReminderEnabled: number; feedReminderMinutes: number }>(`SELECT feedReminderEnabled, feedReminderMinutes FROM app_settings WHERE id = 1`);
   return { enabled: !!(s?.feedReminderEnabled ?? 0), minutes: s?.feedReminderMinutes ?? 180 };
 }
 export async function setFeedReminderEnabled(enabled: boolean): Promise<void> {
+  const db = await getDb();
   await db.runAsync(`UPDATE app_settings SET feedReminderEnabled = ? WHERE id = 1`, [enabled ? 1 : 0]);
 }
 export async function setFeedReminderMinutes(minutes: number): Promise<void> {
+  const db = await getDb();
   await db.runAsync(`UPDATE app_settings SET feedReminderMinutes = ? WHERE id = 1`, [minutes]);
 }
 
 // Babies
 export async function createBaby(baby: BabyProfile): Promise<number> {
+  const db = await getDb();
   const now = nowMs();
   const uuid = generateId('b_');
   const res = await db.runAsync(`INSERT INTO babies (uuid, name, birthdate, updatedAt, deleted) VALUES (?, ?, ?, ?, 0)`, [uuid, baby.name, baby.birthdate ?? null, now]);
@@ -170,15 +197,18 @@ export async function createBaby(baby: BabyProfile): Promise<number> {
 }
 
 export async function listBabies(): Promise<BabyProfile[]> {
+  const db = await getDb();
   return db.getAllAsync<BabyProfile>(`SELECT id, name, birthdate FROM babies WHERE deleted = 0 ORDER BY id ASC`);
 }
 
 export async function getBabyUuid(localId: number): Promise<string | null> {
+  const db = await getDb();
   const r = await db.getFirstAsync<{ uuid: string | null }>(`SELECT uuid FROM babies WHERE id = ?`, [localId]);
   return r?.uuid ?? null;
 }
 
 export async function upsertBabyFromRemote(uuid: string, name: string, birthdate: number | null, updatedAt: number, deleted: boolean): Promise<number> {
+  const db = await getDb();
   const existing = await db.getFirstAsync<{ id: number; updatedAt: number }>(`SELECT id, updatedAt FROM babies WHERE uuid = ?`, [uuid]);
   if (existing && existing.updatedAt >= updatedAt) return existing.id;
   if (existing) {
@@ -191,11 +221,13 @@ export async function upsertBabyFromRemote(uuid: string, name: string, birthdate
 }
 
 export async function getLocalBabiesChangedSince(since: number): Promise<Array<{ uuid: string; name: string; birthdate: number | null; updatedAt: number; deleted: number }>> {
+  const db = await getDb();
   return db.getAllAsync<any>(`SELECT uuid, name, birthdate, updatedAt, deleted FROM babies WHERE updatedAt > ?`, [since]);
 }
 
 // Feeds
 export async function insertFeed(entry: FeedEntry): Promise<number> {
+  const db = await getDb();
   const result = await db.runAsync(
     `INSERT INTO feed_entries (uuid, babyId, type, createdAt, quantityMl, durationMin, side, foodName, foodAmountGrams, notes, updatedAt, deleted)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)`,
@@ -217,6 +249,7 @@ export async function insertFeed(entry: FeedEntry): Promise<number> {
 }
 
 export async function updateFeed(entry: FeedEntry): Promise<void> {
+  const db = await getDb();
   if (!entry.id) throw new Error('updateFeed requires entry.id');
   await db.runAsync(
     `UPDATE feed_entries
@@ -239,14 +272,17 @@ export async function updateFeed(entry: FeedEntry): Promise<void> {
 }
 
 export async function softDeleteFeed(id: number): Promise<void> {
+  const db = await getDb();
   await db.runAsync(`UPDATE feed_entries SET deleted = 1, updatedAt = ? WHERE id = ?`, [nowMs(), id]);
 }
 
 export async function deleteFeed(id: number): Promise<void> {
+  const db = await getDb();
   await db.runAsync(`DELETE FROM feed_entries WHERE id = ?`, [id]);
 }
 
 export async function getFeedsBetween(babyId: number, startMs: number, endMs: number): Promise<FeedEntry[]> {
+  const db = await getDb();
   const rows = await db.getAllAsync<FeedEntry>(
     `SELECT id, babyId, type, createdAt, quantityMl, durationMin, side, foodName, foodAmountGrams, notes
      FROM feed_entries
@@ -258,6 +294,7 @@ export async function getFeedsBetween(babyId: number, startMs: number, endMs: nu
 }
 
 export async function getRecentFeeds(babyId: number, limit: number = 50): Promise<FeedEntry[]> {
+  const db = await getDb();
   const rows = await db.getAllAsync<FeedEntry>(
     `SELECT id, babyId, type, createdAt, quantityMl, durationMin, side, foodName, foodAmountGrams, notes
      FROM feed_entries
@@ -270,11 +307,13 @@ export async function getRecentFeeds(babyId: number, limit: number = 50): Promis
 }
 
 export async function getFeedUuid(localId: number): Promise<string | null> {
+  const db = await getDb();
   const r = await db.getFirstAsync<{ uuid: string | null }>(`SELECT uuid FROM feed_entries WHERE id = ?`, [localId]);
   return r?.uuid ?? null;
 }
 
 export async function upsertFeedFromRemote(fields: { uuid: string; babyUuid: string; type: string; createdAt: number; quantityMl: number | null; durationMin: number | null; side: string | null; foodName: string | null; foodAmountGrams: number | null; notes: string | null; updatedAt: number; deleted: boolean }): Promise<number> {
+  const db = await getDb();
   // Map babyUuid to local baby id (create stub if missing)
   const baby = await db.getFirstAsync<{ id: number }>(`SELECT id FROM babies WHERE uuid = ?`, [fields.babyUuid]);
   let localBabyId = baby?.id;
@@ -294,6 +333,7 @@ export async function upsertFeedFromRemote(fields: { uuid: string; babyUuid: str
 }
 
 export async function getLocalFeedsChangedSince(since: number): Promise<Array<{ uuid: string; babyUuid: string; type: string; createdAt: number; quantityMl: number | null; durationMin: number | null; side: string | null; foodName: string | null; foodAmountGrams: number | null; notes: string | null; updatedAt: number; deleted: number }>> {
+  const db = await getDb();
   const rows = await db.getAllAsync<any>(
     `SELECT f.uuid as uuid, b.uuid as babyUuid, f.type, f.createdAt, f.quantityMl, f.durationMin, f.side, f.foodName, f.foodAmountGrams, f.notes, f.updatedAt, f.deleted
      FROM feed_entries f
@@ -306,6 +346,7 @@ export async function getLocalFeedsChangedSince(since: number): Promise<Array<{ 
 
 // Stash
 export async function addToStash(item: Omit<StashItem, 'id'>): Promise<number> {
+  const db = await getDb();
   const res = await db.runAsync(
     `INSERT INTO stash_items (uuid, babyId, createdAt, volumeMl, expiresAt, status, notes, updatedAt, deleted)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0)`,
@@ -315,13 +356,16 @@ export async function addToStash(item: Omit<StashItem, 'id'>): Promise<number> {
 }
 
 export async function listStash(babyId: number): Promise<StashItem[]> {
+  const db = await getDb();
   return db.getAllAsync<StashItem>(`SELECT id, babyId, createdAt, volumeMl, expiresAt, status, notes FROM stash_items WHERE deleted = 0 AND babyId = ? ORDER BY createdAt DESC`, [babyId]);
 }
 
 export async function updateStashStatus(id: number, status: StashItem['status']): Promise<void> {
+  const db = await getDb();
   await db.runAsync(`UPDATE stash_items SET status = ?, updatedAt = ? WHERE id = ?`, [status, nowMs(), id]);
 }
 
 export async function deleteStash(id: number): Promise<void> {
+  const db = await getDb();
   await db.runAsync(`UPDATE stash_items SET deleted = 1, updatedAt = ? WHERE id = ?`, [nowMs(), id]);
 }

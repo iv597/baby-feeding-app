@@ -5,6 +5,7 @@ import { deleteFeed, getRecentFeeds } from '../db';
 import { FeedEntry } from '../types';
 import { format } from 'date-fns';
 import { useAppContext } from '../context/AppContext';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 function renderSubtitle(item: FeedEntry): string {
   switch (item.type) {
@@ -42,27 +43,27 @@ export default function HistoryScreen() {
   };
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
       <Text variant="titleLarge" style={{ marginBottom: 8 }}>Recent</Text>
       <FlatList
         data={data}
-        keyExtractor={(item) => String(item.id)}
+        keyExtractor={(item, idx) => (item.id ? String(item.id) : `row-${idx}`)}
         renderItem={({ item }) => (
           <List.Item
             title={item.type}
-            description={`${renderSubtitle(item)}  ·  ${format(item.createdAt, 'PP p')}`}
+            description={`${renderSubtitle(item)}  ·  ${format(item.createdAt ?? Date.now(), 'PP p')}`}
             left={(props) => <List.Icon {...props} icon={
               item.type === 'breastmilk' ? 'baby-bottle-outline' :
               item.type === 'formula' ? 'cup-water' :
               item.type === 'water' ? 'water' : 'food-apple'} />}
             right={(props) => (
-              <IconButton icon="delete" onPress={() => handleDelete(item.id)} />
+              <IconButton {...props} icon="delete" onPress={() => handleDelete(item.id)} />
             )}
           />
         )}
         ItemSeparatorComponent={() => <View style={{ height: 1, backgroundColor: '#eee' }} />}
       />
-    </View>
+    </SafeAreaView>
   );
 }
 
