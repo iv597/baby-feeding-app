@@ -59,6 +59,7 @@ export async function initializeDatabase(): Promise<void> {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       uuid TEXT UNIQUE,
       babyId INTEGER NOT NULL,
+      householdId TEXT,
       createdAt INTEGER NOT NULL,
       volumeMl REAL NOT NULL,
       expiresAt INTEGER,
@@ -122,6 +123,11 @@ export async function initializeDatabase(): Promise<void> {
             `ALTER TABLE feed_entries ADD COLUMN householdId TEXT`
         );
     }
+    if (!(await columnExists("stash_items", "householdId"))) {
+        await db.execAsync(
+            `ALTER TABLE stash_items ADD COLUMN householdId TEXT`
+        );
+    }
     if (!(await columnExists("app_settings", "householdId"))) {
         await db.execAsync(
             `ALTER TABLE app_settings ADD COLUMN householdId TEXT`
@@ -172,10 +178,11 @@ export async function setHouseholdId(
         householdId,
     ]);
 
-    // If setting a householdId, update all existing babies and feeds that don't have one
+    // If setting a householdId, update all existing babies, feeds, and stash items that don't have one
     if (householdId) {
         await updateAllBabiesWithHouseholdId(householdId);
         await updateAllFeedsWithHouseholdId(householdId);
+        await updateAllStashItemsWithHouseholdId(householdId);
     }
 }
 export async function getDeviceId(): Promise<string | null> {
@@ -273,7 +280,30 @@ export async function createBaby(baby: BabyProfile): Promise<number> {
     const db = await getDb();
     const now = nowMs();
     const uuid = generateId("b_");
-    const householdId = await getHouseholdId();
+
+    // Get or create a household ID
+    let householdId = await getHouseholdId();
+    if (!householdId) {
+        // Create a default household if none exists
+        householdId = generateId("hh_");
+
+        // Check if app_settings row exists
+        const existingRow = await db.getFirstAsync<{ id: number }>(
+            `SELECT id FROM app_settings WHERE id = 1`
+        );
+        if (existingRow) {
+            await db.runAsync(
+                `UPDATE app_settings SET householdId = ? WHERE id = 1`,
+                [householdId]
+            );
+        } else {
+            await db.runAsync(
+                `INSERT INTO app_settings (id, activeBabyId, theme, householdId) VALUES (1, NULL, 'light', ?)`,
+                [householdId]
+            );
+        }
+    }
+
     const res = await db.runAsync(
         `INSERT INTO babies (uuid, name, birthdate, householdId, updatedAt, deleted) VALUES (?, ?, ?, ?, ?, 0)`,
         [uuid, baby.name, baby.birthdate ?? null, householdId, now]
@@ -311,7 +341,28 @@ export async function upsertBabyFromRemote(
     );
     if (existing && existing.updatedAt >= updatedAt) return existing.id;
 
-    const householdId = await getHouseholdId();
+    // Get or create a household ID
+    let householdId = await getHouseholdId();
+    if (!householdId) {
+        // Create a default household if none exists
+        householdId = generateId("hh_");
+
+        // Check if app_settings row exists
+        const existingRow = await db.getFirstAsync<{ id: number }>(
+            `SELECT id FROM app_settings WHERE id = 1`
+        );
+        if (existingRow) {
+            await db.runAsync(
+                `UPDATE app_settings SET householdId = ? WHERE id = 1`,
+                [householdId]
+            );
+        } else {
+            await db.runAsync(
+                `INSERT INTO app_settings (id, activeBabyId, theme, householdId) VALUES (1, NULL, 'light', ?)`,
+                [householdId]
+            );
+        }
+    }
 
     if (existing) {
         await db.runAsync(
@@ -377,6 +428,16 @@ export async function updateAllFeedsWithHouseholdId(
     );
 }
 
+export async function updateAllStashItemsWithHouseholdId(
+    householdId: string
+): Promise<void> {
+    const db = await getDb();
+    await db.runAsync(
+        `UPDATE stash_items SET householdId = ?, updatedAt = ? WHERE householdId IS NULL`,
+        [householdId, nowMs()]
+    );
+}
+
 export async function getLocalBabiesChangedSince(since: number): Promise<
     Array<{
         uuid: string;
@@ -397,13 +458,37 @@ export async function getLocalBabiesChangedSince(since: number): Promise<
 // Feeds
 export async function insertFeed(entry: FeedEntry): Promise<number> {
     const db = await getDb();
+
+    // Get or create a household ID
+    let householdId = await getHouseholdId();
+    if (!householdId) {
+        // Create a default household if none exists
+        householdId = generateId("hh_");
+
+        // Check if app_settings row exists
+        const existingRow = await db.getFirstAsync<{ id: number }>(
+            `SELECT id FROM app_settings WHERE id = 1`
+        );
+        if (existingRow) {
+            await db.runAsync(
+                `UPDATE app_settings SET householdId = ? WHERE id = 1`,
+                [householdId]
+            );
+        } else {
+            await db.runAsync(
+                `INSERT INTO app_settings (id, activeBabyId, theme, householdId) VALUES (1, NULL, 'light', ?)`,
+                [householdId]
+            );
+        }
+    }
+
     const result = await db.runAsync(
         `INSERT INTO feed_entries (uuid, babyId, householdId, type, createdAt, quantityMl, durationMin, side, foodName, foodAmountGrams, notes, updatedAt, deleted)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)`,
         [
             generateId("f_"),
             entry.babyId,
-            await getHouseholdId(),
+            householdId,
             entry.type,
             entry.createdAt,
             entry.quantityMl ?? null,
@@ -510,6 +595,30 @@ export async function upsertFeedFromRemote(fields: {
     deleted: boolean;
 }): Promise<number> {
     const db = await getDb();
+
+    // Get or create a household ID
+    let householdId = await getHouseholdId();
+    if (!householdId) {
+        // Create a default household if none exists
+        householdId = generateId("hh_");
+
+        // Check if app_settings row exists
+        const existingRow = await db.getFirstAsync<{ id: number }>(
+            `SELECT id FROM app_settings WHERE id = 1`
+        );
+        if (existingRow) {
+            await db.runAsync(
+                `UPDATE app_settings SET householdId = ? WHERE id = 1`,
+                [householdId]
+            );
+        } else {
+            await db.runAsync(
+                `INSERT INTO app_settings (id, activeBabyId, theme, householdId) VALUES (1, NULL, 'light', ?)`,
+                [householdId]
+            );
+        }
+    }
+
     // Map babyUuid to local baby id (create stub if missing)
     const baby = await db.getFirstAsync<{ id: number }>(
         `SELECT id FROM babies WHERE uuid = ?`,
@@ -519,12 +628,11 @@ export async function upsertFeedFromRemote(fields: {
     if (!localBabyId) {
         const res = await db.runAsync(
             `INSERT INTO babies (uuid, name, birthdate, householdId, updatedAt, deleted) VALUES (?, ?, ?, ?, ?, 0)`,
-            [fields.babyUuid, "Baby", null, await getHouseholdId(), nowMs()]
+            [fields.babyUuid, "Baby", null, householdId, nowMs()]
         );
         localBabyId = res.lastInsertRowId as number;
     }
 
-    const householdId = await getHouseholdId();
     const existing = await db.getFirstAsync<{ id: number; updatedAt: number }>(
         `SELECT id, updatedAt FROM feed_entries WHERE uuid = ?`,
         [fields.uuid]
@@ -604,12 +712,37 @@ export async function getLocalFeedsChangedSince(since: number): Promise<
 // Stash
 export async function addToStash(item: Omit<StashItem, "id">): Promise<number> {
     const db = await getDb();
+
+    // Get or create a household ID
+    let householdId = await getHouseholdId();
+    if (!householdId) {
+        // Create a default household if none exists
+        householdId = generateId("hh_");
+
+        // Check if app_settings row exists
+        const existingRow = await db.getFirstAsync<{ id: number }>(
+            `SELECT id FROM app_settings WHERE id = 1`
+        );
+        if (existingRow) {
+            await db.runAsync(
+                `UPDATE app_settings SET householdId = ? WHERE id = 1`,
+                [householdId]
+            );
+        } else {
+            await db.runAsync(
+                `INSERT INTO app_settings (id, activeBabyId, theme, householdId) VALUES (1, NULL, 'light', ?)`,
+                [householdId]
+            );
+        }
+    }
+
     const res = await db.runAsync(
-        `INSERT INTO stash_items (uuid, babyId, createdAt, volumeMl, expiresAt, status, notes, updatedAt, deleted)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0)`,
+        `INSERT INTO stash_items (uuid, babyId, householdId, createdAt, volumeMl, expiresAt, status, notes, updatedAt, deleted)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0)`,
         [
             generateId("s_"),
             item.babyId,
+            householdId,
             item.createdAt,
             item.volumeMl,
             item.expiresAt ?? null,
@@ -624,7 +757,7 @@ export async function addToStash(item: Omit<StashItem, "id">): Promise<number> {
 export async function listStash(babyId: number): Promise<StashItem[]> {
     const db = await getDb();
     return db.getAllAsync<StashItem>(
-        `SELECT id, babyId, createdAt, volumeMl, expiresAt, status, notes FROM stash_items WHERE deleted = 0 AND babyId = ? ORDER BY createdAt DESC`,
+        `SELECT id, babyId, householdId, createdAt, volumeMl, expiresAt, status, notes FROM stash_items WHERE deleted = 0 AND babyId = ? ORDER BY createdAt DESC`,
         [babyId]
     );
 }

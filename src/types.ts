@@ -27,6 +27,7 @@ export interface FeedEntry {
 export interface StashItem {
     id?: number;
     babyId: number;
+    householdId?: string | null;
     createdAt: number; // epoch ms
     volumeMl: number;
     expiresAt?: number | null;

@@ -13,6 +13,7 @@ import {
     getBabyByUuid,
     updateAllBabiesWithHouseholdId,
     updateAllFeedsWithHouseholdId,
+    updateAllStashItemsWithHouseholdId,
 } from "../db";
 import { generateId, nowMs } from "../utils";
 
@@ -67,6 +68,9 @@ export async function syncNow(): Promise<{ pushed: number; pulled: number }> {
 
     // Update all existing feed entries with householdId if they don't have one
     await updateAllFeedsWithHouseholdId(householdId);
+
+    // Update all existing stash items with householdId if they don't have one
+    await updateAllStashItemsWithHouseholdId(householdId);
 
     const since = await getLastSyncAt();
     let pushed = 0;
