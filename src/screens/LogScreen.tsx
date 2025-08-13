@@ -25,7 +25,7 @@ import { FeedEntry, FeedType, BreastSide } from "../types";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function LogScreen() {
-    const { activeBabyId, syncCloud, syncStatus } = useAppContext();
+    const { activeBabyId, syncStatus } = useAppContext();
     const [visible, setVisible] = useState(false);
     const [type, setType] = useState<FeedType>("breastmilk");
     const [date, setDate] = useState<Date>(new Date());
@@ -35,7 +35,6 @@ export default function LogScreen() {
     const [foodName, setFoodName] = useState("");
     const [foodAmountGrams, setFoodAmountGrams] = useState("");
     const [notes, setNotes] = useState("");
-    const [syncing, setSyncing] = useState(false);
 
     const timerRef = useRef<{ start: number | null; interval: any | null }>({
         start: null,
@@ -57,18 +56,6 @@ export default function LogScreen() {
         setFoodAmountGrams("");
         setNotes("");
         stopTimer();
-    };
-
-    const onSync = async () => {
-        try {
-            setSyncing(true);
-            const { pushed, pulled } = await syncCloud();
-            console.log(`Sync complete! Pushed: ${pushed}, Pulled: ${pulled}`);
-        } catch (error) {
-            console.error("Sync failed:", error);
-        } finally {
-            setSyncing(false);
-        }
     };
 
     const startTimer = () => {
@@ -128,12 +115,8 @@ export default function LogScreen() {
         setVisible(false);
         resetForm();
 
-        // Auto-sync after saving feed entry
-        try {
-            await syncCloud();
-        } catch (error) {
-            console.warn("Auto-sync failed after saving feed:", error);
-        }
+        // Auto-sync is now handled automatically in the background
+        // No need to call sync manually
     };
 
     const applyPreset = (val: number) => setQuantityMl(String(val));
@@ -257,19 +240,30 @@ export default function LogScreen() {
                 }}
             >
                 <Text variant="titleLarge">Quick Log</Text>
-                <IconButton
-                    icon={syncStatus === "syncing" ? "sync" : "sync"}
-                    size={24}
-                    onPress={onSync}
-                    disabled={syncing || syncStatus === "syncing"}
-                    iconColor={
-                        syncStatus === "error"
-                            ? "#F44336"
-                            : syncStatus === "syncing"
-                            ? "#2196F3"
-                            : "#4CAF50"
-                    }
-                />
+                {/* Sync status indicator */}
+                <View style={{ flexDirection: "row", alignItems: "center" }}>
+                    <View
+                        style={{
+                            width: 8,
+                            height: 8,
+                            borderRadius: 4,
+                            backgroundColor:
+                                syncStatus === "error"
+                                    ? "#F44336"
+                                    : syncStatus === "syncing"
+                                    ? "#2196F3"
+                                    : "#4CAF50",
+                            marginRight: 6,
+                        }}
+                    />
+                    <Text variant="bodySmall" style={{ fontSize: 10 }}>
+                        {syncStatus === "syncing"
+                            ? "Syncing..."
+                            : syncStatus === "error"
+                            ? "Sync Error"
+                            : "Synced"}
+                    </Text>
+                </View>
             </View>
             <View style={styles.actions}>
                 <Card

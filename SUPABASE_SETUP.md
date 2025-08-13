@@ -30,10 +30,19 @@ After adding the environment variables:
 
 ## Step 4: Test Sync
 
-1. Go to Settings → Sync
-2. Tap "Sync Now" to manually sync your data
-3. Check the console logs to see sync progress
-4. Your babies should now appear in the Supabase table
+1. **Sync is now automatic!** The app will sync data every 5 minutes and when you return to the app
+2. **Create a new baby** or log a feed entry to test
+3. **Check the console logs** to see automatic sync progress
+4. **Your data will appear in Supabase automatically** within 5 minutes
+
+## How Sync Works
+
+The app now syncs automatically in the background:
+
+✅ **Immediate sync** - After creating babies or logging feeds  
+✅ **Background sync** - Every 5 minutes automatically  
+✅ **App activation sync** - When you return to the app  
+✅ **No manual intervention needed** - Completely seamless
 
 ## Troubleshooting
 

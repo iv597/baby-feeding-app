@@ -18,6 +18,7 @@ import {
 } from "../db";
 import { BabyProfile, ThemeMode } from "../types";
 import { createHousehold, joinHousehold, syncNow } from "../sync/service";
+import { AppState } from "react-native";
 
 interface AppContextValue {
     babies: BabyProfile[];
@@ -31,7 +32,6 @@ interface AppContextValue {
     setTheme: (mode: ThemeMode) => Promise<void>;
     createCloudHousehold: () => Promise<string>;
     joinCloudHousehold: (code: string) => Promise<void>;
-    syncCloud: () => Promise<{ pushed: number; pulled: number }>;
 }
 
 const AppContext = createContext<AppContextValue | undefined>(undefined);
@@ -78,6 +78,42 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         })();
     }, [refreshBabies]);
 
+    // Automatic background sync every 5 minutes
+    useEffect(() => {
+        const autoSyncInterval = setInterval(async () => {
+            try {
+                console.log("Running automatic background sync...");
+                await syncNow();
+                console.log("Automatic background sync completed");
+            } catch (error) {
+                console.warn("Automatic background sync failed:", error);
+                setSyncStatus("error");
+            }
+        }, 5 * 60 * 1000); // Sync every 5 minutes
+
+        return () => clearInterval(autoSyncInterval);
+    }, []);
+
+    // Sync when app becomes active
+    useEffect(() => {
+        const handleAppStateChange = (nextAppState: string) => {
+            if (nextAppState === "active") {
+                // App became active, sync data
+                console.log("App became active, syncing data...");
+                syncNow().catch((error) => {
+                    console.warn("Sync on app activation failed:", error);
+                    setSyncStatus("error");
+                });
+            }
+        };
+
+        const subscription = AppState.addEventListener(
+            "change",
+            handleAppStateChange
+        );
+        return () => subscription?.remove();
+    }, []);
+
     const addBaby = useCallback(
         async (name: string, birthdate?: number | null) => {
             const id = await createBaby({ name, birthdate: birthdate ?? null });
@@ -119,18 +155,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         setHousehold(await getHouseholdId());
     }, []);
 
-    const syncCloud = useCallback(async () => {
-        try {
-            setSyncStatus("syncing");
-            const res = await syncNow();
-            setSyncStatus("idle");
-            return res;
-        } catch (error) {
-            setSyncStatus("error");
-            throw error;
-        }
-    }, []);
-
     const value = useMemo(
         () => ({
             babies,
@@ -144,7 +168,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             setTheme,
             createCloudHousehold,
             joinCloudHousehold,
-            syncCloud,
         }),
         [
             babies,
@@ -158,7 +181,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             setTheme,
             createCloudHousehold,
             joinCloudHousehold,
-            syncCloud,
         ]
     );
 

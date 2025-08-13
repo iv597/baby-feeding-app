@@ -18,16 +18,8 @@ import { useAuth } from "../context/AuthContext";
 import { authService } from "../auth/service";
 
 export default function SettingsScreen() {
-    const {
-        babies,
-        activeBabyId,
-        selectBaby,
-        addBaby,
-        themeMode,
-        setTheme,
-        syncCloud,
-        syncStatus,
-    } = useAppContext();
+    const { babies, activeBabyId, selectBaby, addBaby, themeMode, setTheme } =
+        useAppContext();
     const { user, profile, signOut } = useAuth();
     const [addVisible, setAddVisible] = useState(false);
     const [name, setName] = useState("");
@@ -36,7 +28,6 @@ export default function SettingsScreen() {
     const [syncMessage, setSyncMessage] = useState<string | null>(null);
     const [householdName, setHouseholdName] = useState("");
     const [createHouseholdVisible, setCreateHouseholdVisible] = useState(false);
-    const [syncing, setSyncing] = useState(false);
 
     const onAdd = async () => {
         await addBaby(
@@ -73,44 +64,8 @@ export default function SettingsScreen() {
         }
     };
 
-    const onSync = async () => {
-        try {
-            setSyncing(true);
-            const { pushed, pulled } = await syncCloud();
-            setSyncMessage(
-                `Sync complete! Pushed: ${pushed}, Pulled: ${pulled}`
-            );
-        } catch (e: any) {
-            setSyncMessage(e.message || "Sync failed");
-        } finally {
-            setSyncing(false);
-        }
-    };
-
     const onSignOut = async () => {
         await signOut();
-    };
-
-    const getSyncStatusText = () => {
-        switch (syncStatus) {
-            case "syncing":
-                return "Syncing...";
-            case "error":
-                return "Sync error";
-            default:
-                return "Last sync: OK";
-        }
-    };
-
-    const getSyncStatusColor = () => {
-        switch (syncStatus) {
-            case "syncing":
-                return "#2196F3";
-            case "error":
-                return "#F44336";
-            default:
-                return "#4CAF50";
-        }
     };
 
     return (
@@ -177,47 +132,6 @@ export default function SettingsScreen() {
             />
             <Button mode="outlined" onPress={onJoinHousehold}>
                 Join household
-            </Button>
-
-            {/* Sync Section */}
-            <Divider style={{ marginVertical: 8 }} />
-            <Text variant="titleLarge" style={{ marginBottom: 8 }}>
-                Sync
-            </Text>
-
-            {/* Sync Status Indicator */}
-            <View
-                style={{
-                    flexDirection: "row",
-                    alignItems: "center",
-                    marginBottom: 8,
-                }}
-            >
-                <View
-                    style={{
-                        width: 12,
-                        height: 12,
-                        borderRadius: 6,
-                        backgroundColor: getSyncStatusColor(),
-                        marginRight: 8,
-                    }}
-                />
-                <Text
-                    variant="bodyMedium"
-                    style={{ color: getSyncStatusColor() }}
-                >
-                    {getSyncStatusText()}
-                </Text>
-            </View>
-
-            <Button
-                mode="contained"
-                onPress={onSync}
-                loading={syncing}
-                disabled={syncing || syncStatus === "syncing"}
-                style={{ marginBottom: 8 }}
-            >
-                {syncing ? "Syncing..." : "Sync Now"}
             </Button>
 
             {syncMessage ? (
