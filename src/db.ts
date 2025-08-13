@@ -377,9 +377,7 @@ export async function updateAllFeedsWithHouseholdId(
     );
 }
 
-export async function getLocalBabiesChangedSince(
-    since: number
-): Promise<
+export async function getLocalBabiesChangedSince(since: number): Promise<
     Array<{
         uuid: string;
         name: string;
@@ -575,9 +573,7 @@ export async function upsertFeedFromRemote(fields: {
     }
 }
 
-export async function getLocalFeedsChangedSince(
-    since: number
-): Promise<
+export async function getLocalFeedsChangedSince(since: number): Promise<
     Array<{
         uuid: string;
         babyUuid: string;
