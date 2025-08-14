@@ -116,6 +116,15 @@ export async function verifyDatabaseStructure(): Promise<void> {
     }
 }
 
+export async function forceFullSync(): Promise<{
+    pushed: number;
+    pulled: number;
+}> {
+    // Reset the last sync timestamp to force a full sync
+    await setLastSyncAt(0);
+    return syncNow();
+}
+
 export async function syncNow(): Promise<{ pushed: number; pulled: number }> {
     const supabase = getSupabase();
     const householdId = await getHouseholdId();
@@ -145,6 +154,13 @@ export async function syncNow(): Promise<{ pushed: number; pulled: number }> {
 
         const since = await getLastSyncAt();
         console.log("Last sync was at:", new Date(since).toISOString());
+
+        // If this is the first sync (since = 0), do a full sync by setting since to a very old date
+        const effectiveSince =
+            since === 0 ? Date.now() - 365 * 24 * 60 * 60 * 1000 : since; // 1 year ago for first sync
+        if (since === 0) {
+            console.log("First sync detected, doing full sync from 1 year ago");
+        }
 
         let pushed = 0;
         let pulled = 0;
@@ -235,7 +251,7 @@ export async function syncNow(): Promise<{ pushed: number; pulled: number }> {
             .from("babies")
             .select("id,name,birthdate,updatedAt,deleted")
             .eq("householdId", householdId)
-            .gt("updatedAt", since);
+            .gt("updatedAt", effectiveSince);
 
         if (pullBabiesError) {
             console.error("Error pulling babies:", pullBabiesError);
@@ -265,7 +281,7 @@ export async function syncNow(): Promise<{ pushed: number; pulled: number }> {
                 "id,babyId,type,createdAt,quantityMl,durationMin,side,foodName,foodAmountGrams,notes,updatedAt,deleted"
             )
             .eq("householdId", householdId)
-            .gt("updatedAt", since);
+            .gt("updatedAt", effectiveSince);
 
         if (pullFeedsError) {
             console.error("Error pulling feeds:", pullFeedsError);

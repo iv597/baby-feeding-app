@@ -7,8 +7,15 @@ import {
     SectionListRenderItemInfo,
     RefreshControl,
     Alert,
+    ScrollView,
 } from "react-native";
-import { IconButton, List, Text } from "react-native-paper";
+import {
+    Button,
+    IconButton,
+    List,
+    Text,
+    SegmentedButtons,
+} from "react-native-paper";
 import { deleteFeed, getRecentFeeds } from "../db";
 import { FeedEntry } from "../types";
 import { format, subDays } from "date-fns";
@@ -42,30 +49,45 @@ function capitalize(s: string): string {
 type HistorySection = { dateKey: string; title: string; data: FeedEntry[] };
 
 export default function HistoryScreen() {
-    const { activeBabyId } = useAppContext();
+    const { activeBabyId, babies } = useAppContext();
     const [entries, setEntries] = useState<FeedEntry[]>([]);
     const [refreshing, setRefreshing] = useState(false);
+    const [selectedBabyId, setSelectedBabyId] = useState<number | undefined>(
+        activeBabyId
+    );
 
     const refresh = useCallback(async () => {
-        if (!activeBabyId) return;
+        if (!selectedBabyId) return;
         setRefreshing(true);
         try {
-            const rows = await getRecentFeeds(activeBabyId, 200);
+            const rows = await getRecentFeeds(selectedBabyId, 1000);
             setEntries(rows);
         } finally {
             setRefreshing(false);
         }
-    }, [activeBabyId]);
+    }, [selectedBabyId]);
 
+    // Only update selected baby on initial load or when active baby changes
     useEffect(() => {
-        refresh();
-    }, [activeBabyId, refresh]);
+        if (activeBabyId && !selectedBabyId) {
+            setSelectedBabyId(activeBabyId);
+        }
+    }, [activeBabyId, selectedBabyId]);
+
+    // Refresh data when selected baby changes
+    useEffect(() => {
+        if (selectedBabyId) {
+            refresh();
+        }
+    }, [selectedBabyId]);
 
     useFocusEffect(
         useCallback(() => {
-            // Refresh whenever the screen gains focus
-            refresh();
-        }, [refresh])
+            // Only refresh data, don't change the selected baby
+            if (selectedBabyId) {
+                refresh();
+            }
+        }, [selectedBabyId])
     );
 
     const sections: HistorySection[] = useMemo(() => {
@@ -98,7 +120,7 @@ export default function HistoryScreen() {
             // Sort descending by date
             .sort((a, b) => b.dateKey.localeCompare(a.dateKey));
         return result;
-    }, [entries]);
+    }, [entries, selectedBabyId]);
 
     const handleDelete = async (id?: number) => {
         if (!id) return;
@@ -163,45 +185,142 @@ export default function HistoryScreen() {
     const renderSectionHeader = ({
         section,
     }: {
-        section: SectionListData<FeedEntry> & HistorySection;
+        section: SectionListData<FeedEntry, HistorySection>;
     }) => (
         <View style={styles.sectionHeader}>
-            <Text variant="titleMedium">
-                {(section as HistorySection).title}
-            </Text>
+            <Text variant="titleMedium">{section.title}</Text>
         </View>
     );
 
     return (
         <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
+            {/* Baby tabs - only show if multiple babies */}
+            {babies.length > 1 && (
+                <View style={styles.tabsContainer}>
+                    <ScrollView
+                        horizontal
+                        showsHorizontalScrollIndicator={false}
+                        contentContainerStyle={styles.tabsScrollContainer}
+                    >
+                        {babies.map((baby) => (
+                            <Button
+                                key={baby.id}
+                                mode={
+                                    selectedBabyId === baby.id
+                                        ? "contained"
+                                        : "outlined"
+                                }
+                                onPress={() => {
+                                    if (baby.id !== selectedBabyId) {
+                                        setSelectedBabyId(baby.id!);
+                                        // The useEffect will handle refreshing the data
+                                    }
+                                }}
+                                style={[
+                                    styles.tabButton,
+                                    selectedBabyId === baby.id &&
+                                        styles.selectedTabButton,
+                                ]}
+                                textColor={
+                                    selectedBabyId === baby.id
+                                        ? "#ffffff"
+                                        : "#495057"
+                                }
+                                compact
+                            >
+                                {baby.name}
+                            </Button>
+                        ))}
+                    </ScrollView>
+                </View>
+            )}
+
             <Text variant="titleLarge" style={{ marginBottom: 8 }}>
-                Recent
+                {babies.length > 1
+                    ? `${
+                          babies.find((b) => b.id === selectedBabyId)?.name ||
+                          "Baby"
+                      }'s Recent`
+                    : "Recent"}
             </Text>
-            <SectionList
-                sections={sections}
-                keyExtractor={(item, idx) =>
-                    item.id
-                        ? String(item.id)
-                        : `${item.type}-${item.createdAt}-${idx}`
-                }
-                renderItem={renderItem}
-                renderSectionHeader={renderSectionHeader}
-                stickySectionHeadersEnabled={false}
-                ItemSeparatorComponent={() => <View style={styles.separator} />}
-                refreshControl={
-                    <RefreshControl
-                        refreshing={refreshing}
-                        onRefresh={refresh}
-                    />
-                }
-                contentContainerStyle={{ paddingBottom: 16 }}
-            />
+
+            {entries.length === 0 ? (
+                // Empty state when no feeding data exists
+                <View style={styles.emptyContainer}>
+                    <Text variant="headlineSmall" style={styles.emptyTitle}>
+                        No feeding data yet
+                    </Text>
+                    <Text variant="bodyMedium" style={styles.emptySubtitle}>
+                        {babies.find((b) => b.id === selectedBabyId)?.name ||
+                            "Baby"}{" "}
+                        hasn't had any feeds recorded yet.
+                    </Text>
+                    <Text variant="bodySmall" style={styles.emptyHint}>
+                        Start logging feeds in the Log tab to see them here.
+                    </Text>
+                </View>
+            ) : (
+                // Show feeding data when it exists
+                <SectionList
+                    key={selectedBabyId} // Force re-render when baby changes
+                    sections={sections}
+                    keyExtractor={(item, idx) =>
+                        item.id
+                            ? String(item.id)
+                            : `${item.type}-${item.createdAt}-${idx}`
+                    }
+                    renderItem={renderItem}
+                    renderSectionHeader={renderSectionHeader}
+                    stickySectionHeadersEnabled={false}
+                    ItemSeparatorComponent={() => (
+                        <View style={styles.separator} />
+                    )}
+                    refreshControl={
+                        <RefreshControl
+                            refreshing={refreshing}
+                            onRefresh={refresh}
+                        />
+                    }
+                    contentContainerStyle={{ paddingBottom: 16 }}
+                />
+            )}
         </SafeAreaView>
     );
 }
 
 const styles = StyleSheet.create({
     container: { flex: 1, padding: 16 },
+    tabsContainer: { marginBottom: 16 },
+    tabsScrollContainer: { paddingHorizontal: 4 },
+    tabButton: {
+        marginRight: 8,
+        minWidth: 80,
+    },
+    selectedTabButton: {
+        backgroundColor: "#6c757d",
+        borderColor: "#495057",
+    },
+    emptyContainer: {
+        flex: 1,
+        justifyContent: "center",
+        alignItems: "center",
+        paddingHorizontal: 32,
+    },
+    emptyTitle: {
+        marginBottom: 8,
+        textAlign: "center",
+        opacity: 0.7,
+    },
+    emptySubtitle: {
+        marginBottom: 8,
+        textAlign: "center",
+        opacity: 0.6,
+    },
+    emptyHint: {
+        textAlign: "center",
+        opacity: 0.5,
+        fontStyle: "italic",
+    },
     sectionHeader: {
         backgroundColor: "#00000008",
         paddingVertical: 6,
@@ -213,5 +332,6 @@ const styles = StyleSheet.create({
     item: { paddingVertical: 6 },
     itemTitle: { fontSize: 14 },
     itemDesc: { fontSize: 12, opacity: 0.8 },
+
     separator: { height: StyleSheet.hairlineWidth, backgroundColor: "#eee" },
 });

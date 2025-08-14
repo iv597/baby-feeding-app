@@ -22,13 +22,16 @@ import { AppState } from "react-native";
 
 interface AppContextValue {
     babies: BabyProfile[];
-    activeBabyId?: number;
+    activeBabyId?: number; // Keep for backward compatibility
+    activeBabyIds: number[]; // New: array of active baby IDs
     themeMode: ThemeMode;
     loading: boolean;
     householdId?: string | null;
     syncStatus: "idle" | "syncing" | "error";
     addBaby: (name: string, birthdate?: number | null) => Promise<void>;
     selectBaby: (babyId: number) => Promise<void>;
+    toggleBabySelection: (babyId: number) => Promise<void>; // New: toggle baby selection
+    selectMultipleBabies: (babyIds: number[]) => Promise<void>; // New: select multiple babies
     setTheme: (mode: ThemeMode) => Promise<void>;
     createCloudHousehold: () => Promise<string>;
     joinCloudHousehold: (code: string) => Promise<void>;
@@ -39,6 +42,7 @@ const AppContext = createContext<AppContextValue | undefined>(undefined);
 export function AppProvider({ children }: { children: React.ReactNode }) {
     const [babies, setBabies] = useState<BabyProfile[]>([]);
     const [activeBabyId, setActive] = useState<number | undefined>(undefined);
+    const [activeBabyIds, setActiveBabyIds] = useState<number[]>([]); // New: array of active baby IDs
     const [themeMode, setThemeState] = useState<ThemeMode>("light");
     const [householdId, setHousehold] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
@@ -74,22 +78,24 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
                 active = list[0].id!;
             }
             setActive(active ?? undefined);
+            setActiveBabyIds(active ? [active] : []); // Initialize the array
             setLoading(false);
         })();
     }, [refreshBabies]);
 
-    // Automatic background sync every 5 minutes
+    // Automatic background sync every 10 minutes
     useEffect(() => {
         const autoSyncInterval = setInterval(async () => {
             try {
                 console.log("Running automatic background sync...");
                 await syncNow();
                 console.log("Automatic background sync completed");
+                setSyncStatus("idle");
             } catch (error) {
                 console.warn("Automatic background sync failed:", error);
                 setSyncStatus("error");
             }
-        }, 5 * 60 * 1000); // Sync every 5 minutes
+        }, 10 * 60 * 1000); // Sync every 10 minutes
 
         return () => clearInterval(autoSyncInterval);
     }, []);
@@ -137,6 +143,42 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const selectBaby = useCallback(async (babyId: number) => {
         await setActiveBabyId(babyId);
         setActive(babyId);
+        setActiveBabyIds([babyId]); // Update the array as well
+    }, []);
+
+    const toggleBabySelection = useCallback(
+        async (babyId: number) => {
+            const newActiveBabyIds = activeBabyIds.includes(babyId)
+                ? activeBabyIds.filter((id) => id !== babyId)
+                : [...activeBabyIds, babyId];
+
+            setActiveBabyIds(newActiveBabyIds);
+
+            // If only one baby is selected, make it the primary active baby
+            if (newActiveBabyIds.length === 1) {
+                await setActiveBabyId(newActiveBabyIds[0]);
+                setActive(newActiveBabyIds[0]);
+            } else if (newActiveBabyIds.length === 0) {
+                // If no babies selected, select the first one
+                if (babies.length > 0) {
+                    const firstBabyId = babies[0].id!;
+                    await setActiveBabyId(firstBabyId);
+                    setActive(firstBabyId);
+                    setActiveBabyIds([firstBabyId]);
+                }
+            }
+        },
+        [activeBabyIds, babies]
+    );
+
+    const selectMultipleBabies = useCallback(async (babyIds: number[]) => {
+        if (babyIds.length === 0) return;
+
+        setActiveBabyIds(babyIds);
+
+        // Set the first selected baby as the primary active baby
+        await setActiveBabyId(babyIds[0]);
+        setActive(babyIds[0]);
     }, []);
 
     const setTheme = useCallback(async (mode: ThemeMode) => {
@@ -159,12 +201,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         () => ({
             babies,
             activeBabyId,
+            activeBabyIds,
             themeMode,
             loading,
             householdId,
             syncStatus,
             addBaby,
             selectBaby,
+            toggleBabySelection,
+            selectMultipleBabies,
             setTheme,
             createCloudHousehold,
             joinCloudHousehold,
@@ -172,12 +217,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         [
             babies,
             activeBabyId,
+            activeBabyIds,
             themeMode,
             loading,
             householdId,
             syncStatus,
             addBaby,
             selectBaby,
+            toggleBabySelection,
+            selectMultipleBabies,
             setTheme,
             createCloudHousehold,
             joinCloudHousehold,
