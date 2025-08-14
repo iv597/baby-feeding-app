@@ -32,6 +32,7 @@ const SwipeableBabyItem = ({
     activeBabyIds,
     toggleBabySelection,
     confirmDeleteBaby,
+    onEditBaby,
 }: any) => {
     const translateX = useRef(new Animated.Value(0)).current;
     const [isSwipeOpen, setIsSwipeOpen] = useState(false);
@@ -48,7 +49,7 @@ const SwipeableBabyItem = ({
         },
         onPanResponderRelease: (_, gestureState) => {
             if (gestureState.dx < -40) {
-                // Swipe left enough to show delete
+                // Swipe left enough to show delete button
                 Animated.spring(translateX, {
                     toValue: -80,
                     useNativeDriver: true,
@@ -142,6 +143,12 @@ const SwipeableBabyItem = ({
                             }}
                         >
                             <IconButton
+                                icon="pencil"
+                                iconColor="#6c757d"
+                                size={20}
+                                onPress={() => onEditBaby(baby)}
+                            />
+                            <IconButton
                                 icon={
                                     activeBabyIds.includes(baby.id!)
                                         ? "eye"
@@ -182,11 +189,16 @@ export default function SettingsScreen() {
         selectMultipleBabies,
         addBaby,
         deleteBaby,
+        refreshBabies,
+        syncNow,
+        setSyncStatus,
         themeMode,
         setTheme,
     } = useAppContext();
     const { user, profile, signOut } = useAuth();
     const [addVisible, setAddVisible] = useState(false);
+    const [editVisible, setEditVisible] = useState(false);
+    const [editingBaby, setEditingBaby] = useState<any>(null);
     const [name, setName] = useState("");
     const [birthdate, setBirthdate] = useState<Date | undefined>(undefined);
     const [gender, setGender] = useState<Gender | undefined>(undefined);
@@ -206,6 +218,46 @@ export default function SettingsScreen() {
         setBirthdate(undefined);
         setGender(undefined);
         setAddVisible(false);
+    };
+
+    const onEditBaby = (baby: any) => {
+        setEditingBaby(baby);
+        setName(baby.name || "");
+        setBirthdate(baby.birthdate ? new Date(baby.birthdate) : undefined);
+        setGender(baby.gender || undefined);
+        setEditVisible(true);
+    };
+
+    const onSaveEdit = async () => {
+        if (!editingBaby) return;
+
+        // Update baby in database
+        const { updateBaby } = await import("../db");
+        await updateBaby(editingBaby.id, {
+            name: name.trim() || "Baby",
+            birthdate: birthdate ? birthdate.getTime() : null,
+            gender: gender || null,
+        });
+
+        // Refresh babies list
+        await refreshBabies();
+
+        // Reset form and close modal
+        setName("");
+        setBirthdate(undefined);
+        setGender(undefined);
+        setEditingBaby(null);
+        setEditVisible(false);
+
+        // Auto-sync after editing
+        try {
+            setSyncStatus("syncing");
+            await syncNow();
+            setSyncStatus("idle");
+        } catch (error) {
+            console.warn("Auto-sync failed after editing baby:", error);
+            setSyncStatus("error");
+        }
     };
 
     const onCreateHousehold = async () => {
@@ -376,6 +428,7 @@ export default function SettingsScreen() {
                                 activeBabyIds={activeBabyIds}
                                 toggleBabySelection={toggleBabySelection}
                                 confirmDeleteBaby={confirmDeleteBaby}
+                                onEditBaby={onEditBaby}
                             />
                             <View
                                 style={{ height: 1, backgroundColor: "#eee" }}
@@ -516,6 +569,77 @@ export default function SettingsScreen() {
                         onPress={onAdd}
                     >
                         Save
+                    </Button>
+                </Modal>
+            </Portal>
+
+            {/* Edit Baby Modal */}
+            <Portal>
+                <Modal
+                    visible={editVisible}
+                    onDismiss={() => {
+                        setEditVisible(false);
+                        setEditingBaby(null);
+                        setName("");
+                        setBirthdate(undefined);
+                        setGender(undefined);
+                    }}
+                    contentContainerStyle={{
+                        backgroundColor: "white",
+                        padding: 16,
+                        margin: 16,
+                        borderRadius: 16,
+                    }}
+                >
+                    <Text variant="titleLarge" style={{ marginBottom: 8 }}>
+                        Edit Baby
+                    </Text>
+                    <TextInput
+                        label="Name"
+                        value={name}
+                        onChangeText={setName}
+                        style={{ marginBottom: 12 }}
+                    />
+
+                    <Text variant="labelMedium" style={{ marginBottom: 8 }}>
+                        Gender (optional)
+                    </Text>
+                    <SegmentedButtons
+                        value={gender || ""}
+                        onValueChange={(value) => setGender(value as Gender)}
+                        buttons={[
+                            {
+                                label: "Boy",
+                                value: "boy",
+                                icon: "baby-face-outline",
+                            },
+                            {
+                                label: "Girl",
+                                value: "girl",
+                                icon: "baby-face-outline",
+                            },
+                            {
+                                label: "Other",
+                                value: "other",
+                                icon: "baby-face-outline",
+                            },
+                        ]}
+                        style={{ marginBottom: 12 }}
+                    />
+
+                    <Text variant="labelMedium" style={{ marginBottom: 8 }}>
+                        Birthdate (optional)
+                    </Text>
+                    <DateTimePicker
+                        value={birthdate ?? new Date()}
+                        onChange={(_, d) => setBirthdate(d ?? birthdate)}
+                    />
+                    <Button
+                        mode="contained"
+                        style={{ marginTop: 12 }}
+                        onPress={onSaveEdit}
+                    >
+                        Save Changes
                     </Button>
                 </Modal>
             </Portal>

@@ -418,6 +418,25 @@ export async function getBabyByUuid(
     return r || null;
 }
 
+export async function updateBaby(
+    id: number,
+    updates: Partial<BabyProfile>
+): Promise<void> {
+    const db = await getDb();
+    const now = nowMs();
+
+    await db.runAsync(
+        `UPDATE babies SET name = ?, birthdate = ?, gender = ?, updatedAt = ? WHERE id = ?`,
+        [
+            updates.name || null,
+            updates.birthdate || null,
+            updates.gender || null,
+            now,
+            id,
+        ]
+    );
+}
+
 export async function softDeleteBaby(id: number): Promise<void> {
     const db = await getDb();
     await db.runAsync(

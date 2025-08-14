@@ -38,6 +38,9 @@ interface AppContextValue {
     selectBaby: (babyId: number) => Promise<void>;
     toggleBabySelection: (babyId: number) => Promise<void>; // New: toggle baby selection
     selectMultipleBabies: (babyIds: number[]) => Promise<void>; // New: select multiple babies
+    refreshBabies: () => Promise<BabyProfile[]>;
+    syncNow: () => Promise<{ pushed: number; pulled: number }>;
+    setSyncStatus: (status: "idle" | "syncing" | "error") => void;
     setTheme: (mode: ThemeMode) => Promise<void>;
     createCloudHousehold: () => Promise<string>;
     joinCloudHousehold: (code: string) => Promise<void>;
@@ -279,6 +282,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             selectBaby,
             toggleBabySelection,
             selectMultipleBabies,
+            refreshBabies,
+            syncNow,
+            setSyncStatus,
             setTheme,
             createCloudHousehold,
             joinCloudHousehold,
