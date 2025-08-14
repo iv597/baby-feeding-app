@@ -115,8 +115,17 @@ export default function LogScreen() {
         setVisible(false);
         resetForm();
 
-        // Auto-sync is now handled automatically in the background
-        // No need to call sync manually
+        // Immediately sync the new feeding log to the database
+        try {
+            const { syncNow } = await import("../sync/service");
+            await syncNow();
+            console.log("Feeding log synced immediately after creation");
+        } catch (error) {
+            console.warn(
+                "Immediate sync failed after creating feeding log:",
+                error
+            );
+        }
     };
 
     const applyPreset = (val: number) => setQuantityMl(String(val));
