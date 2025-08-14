@@ -9,13 +9,7 @@ import {
     Alert,
     ScrollView,
 } from "react-native";
-import {
-    Button,
-    IconButton,
-    List,
-    Text,
-    SegmentedButtons,
-} from "react-native-paper";
+import { Button, IconButton, List, Text } from "react-native-paper";
 import { deleteFeed, getRecentFeeds } from "../db";
 import { FeedEntry } from "../types";
 import { format, subDays } from "date-fns";
@@ -49,11 +43,21 @@ function capitalize(s: string): string {
 type HistorySection = { dateKey: string; title: string; data: FeedEntry[] };
 
 export default function HistoryScreen() {
-    const { activeBabyId, babies } = useAppContext();
+    const { activeBabyId, activeBabyIds, babies } = useAppContext();
     const [entries, setEntries] = useState<FeedEntry[]>([]);
     const [refreshing, setRefreshing] = useState(false);
     const [selectedBabyId, setSelectedBabyId] = useState<number | undefined>(
         activeBabyId
+    );
+
+    const activeBabies = useMemo(
+        () =>
+            Array.isArray(activeBabyIds) && activeBabyIds.length
+                ? babies.filter(
+                      (b) => b.id != null && activeBabyIds.includes(b.id!)
+                  )
+                : babies,
+        [babies, activeBabyIds]
     );
 
     const refresh = useCallback(async () => {
@@ -194,15 +198,15 @@ export default function HistoryScreen() {
 
     return (
         <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
-            {/* Baby tabs - only show if multiple babies */}
-            {babies.length > 1 && (
+            {/* Baby tabs - show only active babies from Settings */}
+            {activeBabies.length > 1 && (
                 <View style={styles.tabsContainer}>
                     <ScrollView
                         horizontal
                         showsHorizontalScrollIndicator={false}
                         contentContainerStyle={styles.tabsScrollContainer}
                     >
-                        {babies.map((baby) => (
+                        {activeBabies.map((baby) => (
                             <Button
                                 key={baby.id}
                                 mode={
@@ -234,15 +238,6 @@ export default function HistoryScreen() {
                     </ScrollView>
                 </View>
             )}
-
-            <Text variant="titleLarge" style={{ marginBottom: 8 }}>
-                {babies.length > 1
-                    ? `${
-                          babies.find((b) => b.id === selectedBabyId)?.name ||
-                          "Baby"
-                      }'s Recent`
-                    : "Recent"}
-            </Text>
 
             {entries.length === 0 ? (
                 // Empty state when no feeding data exists

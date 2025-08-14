@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { View, FlatList, ScrollView } from "react-native";
+import { View, ScrollView } from "react-native";
 import {
     Button,
     List,
@@ -296,82 +296,82 @@ export default function SettingsScreen() {
             >
                 View and manage all babies in your household
             </Text>
-            <FlatList
-                data={babies}
-                keyExtractor={(b) => String(b.id)}
-                renderItem={({ item }) => (
-                    <List.Item
-                        title={item.name}
-                        titleStyle={{
-                            fontWeight:
-                                item.id === activeBabyId ? "bold" : "normal",
-                        }}
-                        description={
-                            item.birthdate
-                                ? `Birthdate: ${new Date(
-                                      item.birthdate
-                                  ).toDateString()}`
-                                : "No birthdate set"
-                        }
-                        left={(props) => (
-                            <List.Icon
-                                {...props}
-                                icon="baby-face-outline"
-                                color={
+            <View>
+                {babies.map((item) => (
+                    <View key={item.id}>
+                        <List.Item
+                            title={item.name}
+                            titleStyle={{
+                                fontWeight:
                                     item.id === activeBabyId
-                                        ? "#2196F3"
-                                        : undefined
-                                }
-                            />
-                        )}
-                        right={(props) => (
-                            <View
-                                style={{
-                                    flexDirection: "row",
-                                    alignItems: "center",
-                                }}
-                            >
-                                {item.id === activeBabyId && (
-                                    <Text
-                                        variant="bodySmall"
-                                        style={{
-                                            marginRight: 8,
-                                            color: "#2196F3",
-                                        }}
-                                    >
-                                        Active
-                                    </Text>
-                                )}
+                                        ? "bold"
+                                        : "normal",
+                            }}
+                            description={
+                                item.birthdate
+                                    ? `Birthdate: ${new Date(
+                                          item.birthdate
+                                      ).toDateString()}`
+                                    : "No birthdate set"
+                            }
+                            left={(props) => (
                                 <List.Icon
                                     {...props}
-                                    icon={
-                                        item.id === activeBabyId
-                                            ? "check-circle"
-                                            : "circle-outline"
-                                    }
+                                    icon="baby-face-outline"
                                     color={
                                         item.id === activeBabyId
                                             ? "#2196F3"
                                             : undefined
                                     }
                                 />
-                            </View>
-                        )}
-                        onPress={() => item.id && selectBaby(item.id)}
-                        style={{
-                            backgroundColor:
-                                item.id === activeBabyId
-                                    ? "#f0f8ff"
-                                    : undefined,
-                            borderRadius: 8,
-                            marginBottom: 4,
-                        }}
-                    />
-                )}
-                ItemSeparatorComponent={() => (
-                    <View style={{ height: 1, backgroundColor: "#eee" }} />
-                )}
-            />
+                            )}
+                            right={(props) => (
+                                <View
+                                    style={{
+                                        flexDirection: "row",
+                                        alignItems: "center",
+                                    }}
+                                >
+                                    {item.id === activeBabyId && (
+                                        <Text
+                                            variant="bodySmall"
+                                            style={{
+                                                marginRight: 8,
+                                                color: "#2196F3",
+                                            }}
+                                        >
+                                            Active
+                                        </Text>
+                                    )}
+                                    <List.Icon
+                                        {...props}
+                                        icon={
+                                            item.id === activeBabyId
+                                                ? "check-circle"
+                                                : "circle-outline"
+                                        }
+                                        color={
+                                            item.id === activeBabyId
+                                                ? "#2196F3"
+                                                : undefined
+                                        }
+                                    />
+                                </View>
+                            )}
+                            onPress={() => item.id && selectBaby(item.id)}
+                            style={{
+                                backgroundColor:
+                                    item.id === activeBabyId
+                                        ? "#f0f8ff"
+                                        : undefined,
+                                borderRadius: 8,
+                                marginBottom: 4,
+                            }}
+                        />
+                        <View style={{ height: 1, backgroundColor: "#eee" }} />
+                    </View>
+                ))}
+            </View>
 
             <Button
                 mode="contained"
