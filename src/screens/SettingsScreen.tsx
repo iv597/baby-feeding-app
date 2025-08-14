@@ -2,6 +2,7 @@ import React, { useMemo, useState } from "react";
 import { View, ScrollView } from "react-native";
 import {
     Button,
+    IconButton,
     List,
     Modal,
     Portal,
@@ -107,141 +108,6 @@ export default function SettingsScreen() {
 
             <Divider style={{ marginBottom: 16 }} />
 
-            {/* Active Babies Switcher - only show if multiple babies */}
-            {babies.length > 1 && (
-                <View style={{ marginBottom: 24 }}>
-                    <Text variant="titleLarge" style={{ marginBottom: 8 }}>
-                        Active Babies
-                    </Text>
-                    <Text
-                        variant="bodyMedium"
-                        style={{ marginBottom: 12, opacity: 0.7 }}
-                    >
-                        Select one or more babies to view combined data
-                    </Text>
-
-                    {/* Multi-select checkboxes for babies */}
-                    <View style={{ marginBottom: 12 }}>
-                        {babies.map((baby) => (
-                            <View
-                                key={baby.id}
-                                style={{
-                                    flexDirection: "row",
-                                    alignItems: "center",
-                                    paddingVertical: 8,
-                                    paddingHorizontal: 12,
-                                    backgroundColor: activeBabyIds.includes(
-                                        baby.id!
-                                    )
-                                        ? "#f8f9fa"
-                                        : "transparent",
-                                    borderRadius: 8,
-                                    marginBottom: 4,
-                                    borderWidth: activeBabyIds.includes(
-                                        baby.id!
-                                    )
-                                        ? 1
-                                        : 0,
-                                    borderColor: "#e9ecef",
-                                }}
-                            >
-                                <Button
-                                    mode="outlined"
-                                    onPress={() =>
-                                        toggleBabySelection(baby.id!)
-                                    }
-                                    style={{
-                                        flex: 1,
-                                        justifyContent: "flex-start",
-                                        borderColor: activeBabyIds.includes(
-                                            baby.id!
-                                        )
-                                            ? "#6c757d"
-                                            : "#dee2e6",
-                                        backgroundColor: activeBabyIds.includes(
-                                            baby.id!
-                                        )
-                                            ? "#ffffff"
-                                            : "transparent",
-                                    }}
-                                    textColor={
-                                        activeBabyIds.includes(baby.id!)
-                                            ? "#495057"
-                                            : "#6c757d"
-                                    }
-                                    contentStyle={{
-                                        justifyContent: "flex-start",
-                                    }}
-                                >
-                                    {baby.name}
-                                </Button>
-                                {activeBabyIds.includes(baby.id!) && (
-                                    <Text
-                                        variant="bodySmall"
-                                        style={{
-                                            marginLeft: 8,
-                                            color: "#6c757d",
-                                            fontWeight: "500",
-                                        }}
-                                    >
-                                        ✓
-                                    </Text>
-                                )}
-                            </View>
-                        ))}
-                    </View>
-
-                    <Text
-                        variant="bodySmall"
-                        style={{ opacity: 0.7, color: "#6c757d" }}
-                    >
-                        {activeBabyIds.length === 0
-                            ? "No babies selected"
-                            : activeBabyIds.length === 1
-                            ? `Active: ${
-                                  babies.find((b) => b.id === activeBabyIds[0])
-                                      ?.name
-                              }`
-                            : `${
-                                  activeBabyIds.length
-                              } babies selected: ${activeBabyIds
-                                  .map(
-                                      (id) =>
-                                          babies.find((b) => b.id === id)?.name
-                                  )
-                                  .join(", ")}`}
-                    </Text>
-
-                    {/* Quick selection buttons */}
-                    <View
-                        style={{ flexDirection: "row", gap: 8, marginTop: 8 }}
-                    >
-                        <Button
-                            mode="outlined"
-                            onPress={() =>
-                                selectMultipleBabies(babies.map((b) => b.id!))
-                            }
-                            compact
-                            style={{ borderColor: "#dee2e6" }}
-                            textColor="#6c757d"
-                        >
-                            Select All
-                        </Button>
-                        <Button
-                            mode="outlined"
-                            onPress={() => selectMultipleBabies([])}
-                            compact
-                            style={{ borderColor: "#dee2e6" }}
-                            textColor="#6c757d"
-                        >
-                            Clear All
-                        </Button>
-                    </View>
-                </View>
-            )}
-
-            <Divider style={{ marginBottom: 16 }} />
-
             {/* Theme Section */}
             <Text variant="titleLarge" style={{ marginBottom: 8 }}>
                 Theme
@@ -299,8 +165,32 @@ export default function SettingsScreen() {
                 variant="bodyMedium"
                 style={{ marginBottom: 12, opacity: 0.7 }}
             >
-                View and manage all babies in your household
+                View and manage all babies in your household. Use the eye icon
+                to toggle active babies for viewing data.
             </Text>
+
+            {/* Active babies summary when list is closed */}
+            {!isManageBabiesOpen && babies.length > 1 && (
+                <Text
+                    variant="bodySmall"
+                    style={{ opacity: 0.7, color: "#6c757d", marginBottom: 12 }}
+                >
+                    {activeBabyIds.length === 0
+                        ? "No babies selected for viewing"
+                        : activeBabyIds.length === 1
+                        ? `Active: ${
+                              babies.find((b) => b.id === activeBabyIds[0])
+                                  ?.name
+                          }`
+                        : `${
+                              activeBabyIds.length
+                          } babies active: ${activeBabyIds
+                              .map(
+                                  (id) => babies.find((b) => b.id === id)?.name
+                              )
+                              .join(", ")}`}
+                </Text>
+            )}
             {isManageBabiesOpen && (
                 <View>
                     {babies.map((item) => (
@@ -338,6 +228,25 @@ export default function SettingsScreen() {
                                             alignItems: "center",
                                         }}
                                     >
+                                        {/* Eye icon to toggle active baby visibility */}
+                                        <IconButton
+                                            icon={
+                                                activeBabyIds.includes(item.id!)
+                                                    ? "eye"
+                                                    : "eye-off"
+                                            }
+                                            iconColor={
+                                                activeBabyIds.includes(item.id!)
+                                                    ? "#2196F3"
+                                                    : "#6c757d"
+                                            }
+                                            size={20}
+                                            style={{ marginRight: 4 }}
+                                            onPress={() =>
+                                                item.id &&
+                                                toggleBabySelection(item.id)
+                                            }
+                                        />
                                         {item.id === activeBabyId && (
                                             <Text
                                                 variant="bodySmall"
@@ -346,7 +255,7 @@ export default function SettingsScreen() {
                                                     color: "#2196F3",
                                                 }}
                                             >
-                                                Active
+                                                Primary
                                             </Text>
                                         )}
                                         <List.Icon
@@ -369,6 +278,8 @@ export default function SettingsScreen() {
                                     backgroundColor:
                                         item.id === activeBabyId
                                             ? "#f0f8ff"
+                                            : activeBabyIds.includes(item.id!)
+                                            ? "#f8f9fa"
                                             : undefined,
                                     borderRadius: 8,
                                     marginBottom: 4,
@@ -379,6 +290,40 @@ export default function SettingsScreen() {
                             />
                         </View>
                     ))}
+
+                    {/* Quick selection buttons for multiple babies */}
+                    {babies.length > 1 && (
+                        <View
+                            style={{
+                                flexDirection: "row",
+                                gap: 8,
+                                marginTop: 12,
+                            }}
+                        >
+                            <Button
+                                mode="outlined"
+                                onPress={() =>
+                                    selectMultipleBabies(
+                                        babies.map((b) => b.id!)
+                                    )
+                                }
+                                compact
+                                style={{ borderColor: "#dee2e6" }}
+                                textColor="#6c757d"
+                            >
+                                View All
+                            </Button>
+                            <Button
+                                mode="outlined"
+                                onPress={() => selectMultipleBabies([])}
+                                compact
+                                style={{ borderColor: "#dee2e6" }}
+                                textColor="#6c757d"
+                            >
+                                View None
+                            </Button>
+                        </View>
+                    )}
                 </View>
             )}
 

@@ -25,7 +25,8 @@ import { FeedEntry, FeedType, BreastSide } from "../types";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function LogScreen() {
-    const { activeBabyId, syncStatus } = useAppContext();
+    const { activeBabyId, activeBabyIds, babies, syncStatus } = useAppContext();
+
     const [visible, setVisible] = useState(false);
     const [type, setType] = useState<FeedType>("breastmilk");
     const [date, setDate] = useState<Date>(new Date());
@@ -35,6 +36,9 @@ export default function LogScreen() {
     const [foodName, setFoodName] = useState("");
     const [foodAmountGrams, setFoodAmountGrams] = useState("");
     const [notes, setNotes] = useState("");
+    const [selectedBabyId, setSelectedBabyId] = useState<number | undefined>(
+        activeBabyId
+    );
 
     const timerRef = useRef<{ start: number | null; interval: any | null }>({
         start: null,
@@ -44,6 +48,7 @@ export default function LogScreen() {
 
     const showForm = (t: FeedType) => {
         setType(t);
+        setSelectedBabyId(activeBabyId); // Reset to default active baby when opening form
         setVisible(true);
     };
 
@@ -86,9 +91,9 @@ export default function LogScreen() {
     };
 
     const onSave = async () => {
-        if (!activeBabyId) return;
+        if (!selectedBabyId) return;
         const entry: FeedEntry = {
-            babyId: activeBabyId,
+            babyId: selectedBabyId,
             type,
             createdAt: date.getTime(),
             quantityMl: quantityMl ? Number(quantityMl) : null,
@@ -104,7 +109,7 @@ export default function LogScreen() {
         await insertFeed(entry);
         if (type === "pump" && entry.quantityMl) {
             await addToStash({
-                babyId: activeBabyId,
+                babyId: selectedBabyId,
                 createdAt: entry.createdAt,
                 volumeMl: entry.quantityMl,
                 expiresAt: null,
@@ -248,7 +253,20 @@ export default function LogScreen() {
                     marginBottom: 16,
                 }}
             >
-                <Text variant="titleLarge">Quick Log</Text>
+                <View style={{ flex: 1 }}>
+                    <Text variant="titleLarge">Quick Log</Text>
+                    {/* Show current logging target when multiple babies are available */}
+                    {babies.length > 1 && (
+                        <Text
+                            variant="bodySmall"
+                            style={{ opacity: 0.7, marginTop: 2 }}
+                        >
+                            Logging for:{" "}
+                            {babies.find((b) => b.id === activeBabyId)?.name ||
+                                "Unknown"}
+                        </Text>
+                    )}
+                </View>
                 {/* Sync status indicator */}
                 <View style={{ flexDirection: "row", alignItems: "center" }}>
                     <View
@@ -352,6 +370,63 @@ export default function LogScreen() {
                             >
                                 Add {type}
                             </Text>
+
+                            {/* Baby selector - show if multiple babies exist */}
+                            {babies.length > 1 && (
+                                <View style={{ marginBottom: 12 }}>
+                                    <Text
+                                        variant="labelMedium"
+                                        style={{ marginBottom: 8 }}
+                                    >
+                                        Select baby:
+                                    </Text>
+                                    <ScrollView
+                                        horizontal
+                                        showsHorizontalScrollIndicator={false}
+                                        contentContainerStyle={{
+                                            paddingHorizontal: 4,
+                                            gap: 8,
+                                        }}
+                                        style={{ marginBottom: 8 }}
+                                    >
+                                        {babies.map((baby) => (
+                                            <Button
+                                                key={baby.id}
+                                                mode={
+                                                    selectedBabyId === baby.id
+                                                        ? "contained"
+                                                        : "outlined"
+                                                }
+                                                onPress={() =>
+                                                    setSelectedBabyId(baby.id!)
+                                                }
+                                                compact
+                                                style={{
+                                                    minWidth: 80,
+                                                    backgroundColor:
+                                                        selectedBabyId ===
+                                                        baby.id
+                                                            ? "#6c757d"
+                                                            : "transparent",
+                                                    borderColor:
+                                                        selectedBabyId ===
+                                                        baby.id
+                                                            ? "#495057"
+                                                            : "#dee2e6",
+                                                }}
+                                                textColor={
+                                                    selectedBabyId === baby.id
+                                                        ? "#ffffff"
+                                                        : "#495057"
+                                                }
+                                            >
+                                                {baby.name || `Baby ${baby.id}`}
+                                            </Button>
+                                        ))}
+                                    </ScrollView>
+                                </View>
+                            )}
+
                             <View style={{ marginBottom: 12 }}>
                                 <DateTimePicker
                                     value={date}

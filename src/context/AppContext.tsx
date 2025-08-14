@@ -171,15 +171,27 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         [activeBabyIds, babies]
     );
 
-    const selectMultipleBabies = useCallback(async (babyIds: number[]) => {
-        if (babyIds.length === 0) return;
+    const selectMultipleBabies = useCallback(
+        async (babyIds: number[]) => {
+            setActiveBabyIds(babyIds);
 
-        setActiveBabyIds(babyIds);
+            if (babyIds.length === 0) {
+                // If no babies selected, select the first one
+                if (babies.length > 0) {
+                    const firstBabyId = babies[0].id!;
+                    await setActiveBabyId(firstBabyId);
+                    setActive(firstBabyId);
+                    setActiveBabyIds([firstBabyId]);
+                }
+                return;
+            }
 
-        // Set the first selected baby as the primary active baby
-        await setActiveBabyId(babyIds[0]);
-        setActive(babyIds[0]);
-    }, []);
+            // Set the first selected baby as the primary active baby
+            await setActiveBabyId(babyIds[0]);
+            setActive(babyIds[0]);
+        },
+        [babies]
+    );
 
     const setTheme = useCallback(async (mode: ThemeMode) => {
         await setThemeMode(mode);
