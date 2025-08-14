@@ -15,6 +15,7 @@ import {
     setActiveBabyId,
     setThemeMode,
     getHouseholdId,
+    softDeleteBaby,
 } from "../db";
 import { BabyProfile, ThemeMode } from "../types";
 import { createHousehold, joinHousehold, syncNow } from "../sync/service";
@@ -29,6 +30,7 @@ interface AppContextValue {
     householdId?: string | null;
     syncStatus: "idle" | "syncing" | "error";
     addBaby: (name: string, birthdate?: number | null) => Promise<void>;
+    deleteBaby: (babyId: number) => Promise<void>; // New: soft delete baby
     selectBaby: (babyId: number) => Promise<void>;
     toggleBabySelection: (babyId: number) => Promise<void>; // New: toggle baby selection
     selectMultipleBabies: (babyIds: number[]) => Promise<void>; // New: select multiple babies
@@ -140,6 +142,40 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         [refreshBabies, syncNow]
     );
 
+    const deleteBaby = useCallback(
+        async (babyId: number) => {
+            await softDeleteBaby(babyId);
+            const updatedBabies = await refreshBabies();
+
+            // If the deleted baby was the active baby, select another one
+            if (activeBabyId === babyId) {
+                if (updatedBabies.length > 0) {
+                    const newActiveBabyId = updatedBabies[0].id!;
+                    await setActiveBabyId(newActiveBabyId);
+                    setActive(newActiveBabyId);
+                    setActiveBabyIds([newActiveBabyId]);
+                } else {
+                    setActive(undefined);
+                    setActiveBabyIds([]);
+                }
+            }
+
+            // Remove from active baby IDs if it was there
+            setActiveBabyIds((prev) => prev.filter((id) => id !== babyId));
+
+            // Auto-sync after deleting baby
+            try {
+                setSyncStatus("syncing");
+                await syncNow();
+                setSyncStatus("idle");
+            } catch (error) {
+                console.warn("Auto-sync failed after deleting baby:", error);
+                setSyncStatus("error");
+            }
+        },
+        [refreshBabies, activeBabyId, syncNow]
+    );
+
     const selectBaby = useCallback(async (babyId: number) => {
         await setActiveBabyId(babyId);
         setActive(babyId);
@@ -219,6 +255,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             householdId,
             syncStatus,
             addBaby,
+            deleteBaby,
             selectBaby,
             toggleBabySelection,
             selectMultipleBabies,
@@ -235,6 +272,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             householdId,
             syncStatus,
             addBaby,
+            deleteBaby,
             selectBaby,
             toggleBabySelection,
             selectMultipleBabies,

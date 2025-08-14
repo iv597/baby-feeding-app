@@ -397,6 +397,14 @@ export async function getBabyByUuid(
     return r || null;
 }
 
+export async function softDeleteBaby(id: number): Promise<void> {
+    const db = await getDb();
+    await db.runAsync(
+        `UPDATE babies SET deleted = 1, updatedAt = ? WHERE id = ?`,
+        [nowMs(), id]
+    );
+}
+
 export async function updateBabyHouseholdId(
     babyId: number,
     householdId: string

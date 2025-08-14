@@ -255,8 +255,8 @@ export default function LogScreen() {
             >
                 <View style={{ flex: 1 }}>
                     <Text variant="titleLarge">Quick Log</Text>
-                    {/* Show current logging target when multiple babies are available */}
-                    {babies.length > 1 && (
+                    {/* Show current logging target when multiple active babies */}
+                    {activeBabyIds.length > 1 && (
                         <Text
                             variant="bodySmall"
                             style={{ opacity: 0.7, marginTop: 2 }}
@@ -371,8 +371,8 @@ export default function LogScreen() {
                                 Add {type}
                             </Text>
 
-                            {/* Baby selector - show if multiple babies exist */}
-                            {babies.length > 1 && (
+                            {/* Baby selector - show if multiple active babies */}
+                            {activeBabyIds.length > 1 && (
                                 <View style={{ marginBottom: 12 }}>
                                     <Text
                                         variant="labelMedium"
@@ -389,40 +389,51 @@ export default function LogScreen() {
                                         }}
                                         style={{ marginBottom: 8 }}
                                     >
-                                        {babies.map((baby) => (
-                                            <Button
-                                                key={baby.id}
-                                                mode={
-                                                    selectedBabyId === baby.id
-                                                        ? "contained"
-                                                        : "outlined"
-                                                }
-                                                onPress={() =>
-                                                    setSelectedBabyId(baby.id!)
-                                                }
-                                                compact
-                                                style={{
-                                                    minWidth: 80,
-                                                    backgroundColor:
+                                        {activeBabyIds.map((babyId) => {
+                                            const baby = babies.find(
+                                                (b) => b.id === babyId
+                                            );
+                                            if (!baby) return null;
+                                            return (
+                                                <Button
+                                                    key={baby.id}
+                                                    mode={
                                                         selectedBabyId ===
                                                         baby.id
-                                                            ? "#6c757d"
-                                                            : "transparent",
-                                                    borderColor:
+                                                            ? "contained"
+                                                            : "outlined"
+                                                    }
+                                                    onPress={() =>
+                                                        setSelectedBabyId(
+                                                            baby.id!
+                                                        )
+                                                    }
+                                                    compact
+                                                    style={{
+                                                        minWidth: 80,
+                                                        backgroundColor:
+                                                            selectedBabyId ===
+                                                            baby.id
+                                                                ? "#6c757d"
+                                                                : "transparent",
+                                                        borderColor:
+                                                            selectedBabyId ===
+                                                            baby.id
+                                                                ? "#495057"
+                                                                : "#dee2e6",
+                                                    }}
+                                                    textColor={
                                                         selectedBabyId ===
                                                         baby.id
-                                                            ? "#495057"
-                                                            : "#dee2e6",
-                                                }}
-                                                textColor={
-                                                    selectedBabyId === baby.id
-                                                        ? "#ffffff"
-                                                        : "#495057"
-                                                }
-                                            >
-                                                {baby.name || `Baby ${baby.id}`}
-                                            </Button>
-                                        ))}
+                                                            ? "#ffffff"
+                                                            : "#495057"
+                                                    }
+                                                >
+                                                    {baby.name ||
+                                                        `Baby ${baby.id}`}
+                                                </Button>
+                                            );
+                                        })}
                                     </ScrollView>
                                 </View>
                             )}

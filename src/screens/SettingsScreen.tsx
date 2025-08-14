@@ -1,5 +1,11 @@
-import React, { useMemo, useState } from "react";
-import { View, ScrollView } from "react-native";
+import React, { useMemo, useState, useRef } from "react";
+import {
+    View,
+    ScrollView,
+    Animated,
+    PanResponder,
+    TouchableOpacity,
+} from "react-native";
 import {
     Button,
     IconButton,
@@ -17,6 +23,147 @@ import DateTimePicker from "@react-native-community/datetimepicker";
 import { useAppContext } from "../context/AppContext";
 import { useAuth } from "../context/AuthContext";
 import { authService } from "../auth/service";
+import { Alert } from "react-native";
+
+// Swipeable Baby Item Component
+const SwipeableBabyItem = ({
+    baby,
+    activeBabyIds,
+    toggleBabySelection,
+    confirmDeleteBaby,
+}: any) => {
+    const translateX = useRef(new Animated.Value(0)).current;
+    const [isSwipeOpen, setIsSwipeOpen] = useState(false);
+
+    const panResponder = PanResponder.create({
+        onMoveShouldSetPanResponder: (_, gestureState) => {
+            return Math.abs(gestureState.dx) > 10;
+        },
+        onPanResponderGrant: () => {},
+        onPanResponderMove: (_, gestureState) => {
+            if (gestureState.dx < 0) {
+                translateX.setValue(Math.max(gestureState.dx, -80));
+            }
+        },
+        onPanResponderRelease: (_, gestureState) => {
+            if (gestureState.dx < -40) {
+                // Swipe left enough to show delete
+                Animated.spring(translateX, {
+                    toValue: -80,
+                    useNativeDriver: true,
+                }).start();
+                setIsSwipeOpen(true);
+            } else {
+                // Snap back
+                Animated.spring(translateX, {
+                    toValue: 0,
+                    useNativeDriver: true,
+                }).start();
+                setIsSwipeOpen(false);
+            }
+        },
+    });
+
+    const closeSwipe = () => {
+        Animated.spring(translateX, {
+            toValue: 0,
+            useNativeDriver: true,
+        }).start();
+        setIsSwipeOpen(false);
+    };
+
+    return (
+        <View style={{ position: "relative", overflow: "hidden" }}>
+            {/* Delete button (hidden behind) */}
+            <View
+                style={{
+                    position: "absolute",
+                    right: 0,
+                    top: 0,
+                    bottom: 0,
+                    width: 80,
+                    backgroundColor: "#F44336",
+                    justifyContent: "center",
+                    alignItems: "center",
+                }}
+            >
+                <TouchableOpacity
+                    style={{
+                        width: 80,
+                        height: "100%",
+                        justifyContent: "center",
+                        alignItems: "center",
+                    }}
+                    onPress={() => {
+                        closeSwipe();
+                        confirmDeleteBaby(baby);
+                    }}
+                >
+                    <IconButton icon="delete" iconColor="#ffffff" size={24} />
+                </TouchableOpacity>
+            </View>
+
+            {/* Main content */}
+            <Animated.View
+                style={{
+                    transform: [{ translateX }],
+                    backgroundColor: "white",
+                }}
+                {...panResponder.panHandlers}
+            >
+                <List.Item
+                    title={baby.name}
+                    description={
+                        baby.birthdate
+                            ? `Birthdate: ${new Date(
+                                  baby.birthdate
+                              ).toDateString()}`
+                            : "No birthdate set"
+                    }
+                    left={(props) => (
+                        <List.Icon
+                            {...props}
+                            icon="baby-face-outline"
+                            color="#6c757d"
+                        />
+                    )}
+                    right={(props) => (
+                        <View
+                            style={{
+                                flexDirection: "row",
+                                alignItems: "center",
+                            }}
+                        >
+                            <IconButton
+                                icon={
+                                    activeBabyIds.includes(baby.id!)
+                                        ? "eye"
+                                        : "eye-off"
+                                }
+                                iconColor={
+                                    activeBabyIds.includes(baby.id!)
+                                        ? "#2196F3"
+                                        : "#6c757d"
+                                }
+                                size={20}
+                                onPress={() =>
+                                    baby.id && toggleBabySelection(baby.id)
+                                }
+                            />
+                        </View>
+                    )}
+                    style={{
+                        backgroundColor: activeBabyIds.includes(baby.id!)
+                            ? "#f8f9fa"
+                            : undefined,
+                        borderRadius: 8,
+                        marginBottom: 4,
+                    }}
+                />
+            </Animated.View>
+        </View>
+    );
+};
 
 export default function SettingsScreen() {
     const {
@@ -27,6 +174,7 @@ export default function SettingsScreen() {
         toggleBabySelection,
         selectMultipleBabies,
         addBaby,
+        deleteBaby,
         themeMode,
         setTheme,
     } = useAppContext();
@@ -77,6 +225,24 @@ export default function SettingsScreen() {
 
     const onSignOut = async () => {
         await signOut();
+    };
+
+    const confirmDeleteBaby = (baby: any) => {
+        Alert.alert(
+            "Delete Baby",
+            `Are you sure you want to delete ${baby.name}? This will remove all feeding data for this baby.`,
+            [
+                {
+                    text: "Cancel",
+                    style: "cancel",
+                },
+                {
+                    text: "Delete",
+                    style: "destructive",
+                    onPress: () => deleteBaby(baby.id!),
+                },
+            ]
+        );
     };
 
     return (
@@ -195,95 +361,11 @@ export default function SettingsScreen() {
                 <View>
                     {babies.map((item) => (
                         <View key={item.id}>
-                            <List.Item
-                                title={item.name}
-                                titleStyle={{
-                                    fontWeight:
-                                        item.id === activeBabyId
-                                            ? "bold"
-                                            : "normal",
-                                }}
-                                description={
-                                    item.birthdate
-                                        ? `Birthdate: ${new Date(
-                                              item.birthdate
-                                          ).toDateString()}`
-                                        : "No birthdate set"
-                                }
-                                left={(props) => (
-                                    <List.Icon
-                                        {...props}
-                                        icon="baby-face-outline"
-                                        color={
-                                            item.id === activeBabyId
-                                                ? "#2196F3"
-                                                : undefined
-                                        }
-                                    />
-                                )}
-                                right={(props) => (
-                                    <View
-                                        style={{
-                                            flexDirection: "row",
-                                            alignItems: "center",
-                                        }}
-                                    >
-                                        {/* Eye icon to toggle active baby visibility */}
-                                        <IconButton
-                                            icon={
-                                                activeBabyIds.includes(item.id!)
-                                                    ? "eye"
-                                                    : "eye-off"
-                                            }
-                                            iconColor={
-                                                activeBabyIds.includes(item.id!)
-                                                    ? "#2196F3"
-                                                    : "#6c757d"
-                                            }
-                                            size={20}
-                                            style={{ marginRight: 4 }}
-                                            onPress={() =>
-                                                item.id &&
-                                                toggleBabySelection(item.id)
-                                            }
-                                        />
-                                        {item.id === activeBabyId && (
-                                            <Text
-                                                variant="bodySmall"
-                                                style={{
-                                                    marginRight: 8,
-                                                    color: "#2196F3",
-                                                }}
-                                            >
-                                                Primary
-                                            </Text>
-                                        )}
-                                        <List.Icon
-                                            {...props}
-                                            icon={
-                                                item.id === activeBabyId
-                                                    ? "check-circle"
-                                                    : "circle-outline"
-                                            }
-                                            color={
-                                                item.id === activeBabyId
-                                                    ? "#2196F3"
-                                                    : undefined
-                                            }
-                                        />
-                                    </View>
-                                )}
-                                onPress={() => item.id && selectBaby(item.id)}
-                                style={{
-                                    backgroundColor:
-                                        item.id === activeBabyId
-                                            ? "#f0f8ff"
-                                            : activeBabyIds.includes(item.id!)
-                                            ? "#f8f9fa"
-                                            : undefined,
-                                    borderRadius: 8,
-                                    marginBottom: 4,
-                                }}
+                            <SwipeableBabyItem
+                                baby={item}
+                                activeBabyIds={activeBabyIds}
+                                toggleBabySelection={toggleBabySelection}
+                                confirmDeleteBaby={confirmDeleteBaby}
                             />
                             <View
                                 style={{ height: 1, backgroundColor: "#eee" }}
@@ -320,20 +402,21 @@ export default function SettingsScreen() {
                                 style={{ borderColor: "#dee2e6" }}
                                 textColor="#6c757d"
                             >
-                                View None
+                                Reset view
                             </Button>
                         </View>
                     )}
+
+                    {/* Add baby button - only show when manage babies is open */}
+                    <Button
+                        mode="contained"
+                        style={{ marginTop: 16 }}
+                        onPress={() => setAddVisible(true)}
+                    >
+                        Add baby
+                    </Button>
                 </View>
             )}
-
-            <Button
-                mode="contained"
-                style={{ marginTop: 16 }}
-                onPress={() => setAddVisible(true)}
-            >
-                Add baby
-            </Button>
 
             {/* Create Household Modal */}
             <Portal>
