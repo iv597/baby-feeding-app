@@ -24,6 +24,7 @@ import { useAppContext } from "../context/AppContext";
 import { useAuth } from "../context/AuthContext";
 import { authService } from "../auth/service";
 import { Alert } from "react-native";
+import { Gender } from "../types";
 
 // Swipeable Baby Item Component
 const SwipeableBabyItem = ({
@@ -124,7 +125,13 @@ const SwipeableBabyItem = ({
                         <List.Icon
                             {...props}
                             icon="baby-face-outline"
-                            color="#6c757d"
+                            color={
+                                baby.gender === "boy"
+                                    ? "#2196F3"
+                                    : baby.gender === "girl"
+                                    ? "#E91E63"
+                                    : "#6c757d"
+                            }
                         />
                     )}
                     right={(props) => (
@@ -182,6 +189,7 @@ export default function SettingsScreen() {
     const [addVisible, setAddVisible] = useState(false);
     const [name, setName] = useState("");
     const [birthdate, setBirthdate] = useState<Date | undefined>(undefined);
+    const [gender, setGender] = useState<Gender | undefined>(undefined);
     const [joinCode, setJoinCode] = useState("");
     const [syncMessage, setSyncMessage] = useState<string | null>(null);
     const [householdName, setHouseholdName] = useState("");
@@ -191,10 +199,12 @@ export default function SettingsScreen() {
     const onAdd = async () => {
         await addBaby(
             name.trim() || "Baby",
-            birthdate ? birthdate.getTime() : null
+            birthdate ? birthdate.getTime() : null,
+            gender
         );
         setName("");
         setBirthdate(undefined);
+        setGender(undefined);
         setAddVisible(false);
     };
 
@@ -466,6 +476,36 @@ export default function SettingsScreen() {
                         onChangeText={setName}
                         style={{ marginBottom: 12 }}
                     />
+
+                    <Text variant="labelMedium" style={{ marginBottom: 8 }}>
+                        Gender (optional)
+                    </Text>
+                    <SegmentedButtons
+                        value={gender || ""}
+                        onValueChange={(value) => setGender(value as Gender)}
+                        buttons={[
+                            {
+                                label: "Boy",
+                                value: "boy",
+                                icon: "baby-face-outline",
+                            },
+                            {
+                                label: "Girl",
+                                value: "girl",
+                                icon: "baby-face-outline",
+                            },
+                            {
+                                label: "Other",
+                                value: "other",
+                                icon: "baby-face-outline",
+                            },
+                        ]}
+                        style={{ marginBottom: 12 }}
+                    />
+
+                    <Text variant="labelMedium" style={{ marginBottom: 8 }}>
+                        Birthdate (optional)
+                    </Text>
                     <DateTimePicker
                         value={birthdate ?? new Date()}
                         onChange={(_, d) => setBirthdate(d ?? birthdate)}

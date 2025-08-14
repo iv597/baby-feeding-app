@@ -50,6 +50,7 @@ create table if not exists public.babies (
   householdId text not null references public.households(id) on delete cascade,
   name text not null,
   birthdate bigint,
+  gender text,
   updatedAt bigint not null,
   deleted boolean not null default false
 );

@@ -182,6 +182,7 @@ export async function syncNow(): Promise<{ pushed: number; pulled: number }> {
                     householdId: b.householdId,
                     name: b.name,
                     birthdate: b.birthdate,
+                    gender: b.gender,
                     updatedAt: b.updatedAt,
                     deleted: !!b.deleted,
                 });
@@ -249,7 +250,7 @@ export async function syncNow(): Promise<{ pushed: number; pulled: number }> {
         // Pull babies
         const { data: remoteBabies, error: pullBabiesError } = await supabase
             .from("babies")
-            .select("id,name,birthdate,updatedAt,deleted")
+            .select("id,name,birthdate,gender,updatedAt,deleted")
             .eq("householdId", householdId)
             .gt("updatedAt", effectiveSince);
 
@@ -263,6 +264,7 @@ export async function syncNow(): Promise<{ pushed: number; pulled: number }> {
                         b.id,
                         b.name,
                         b.birthdate,
+                        b.gender,
                         b.updatedAt,
                         b.deleted
                     );

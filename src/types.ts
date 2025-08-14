@@ -4,10 +4,13 @@ export type BreastSide = "left" | "right" | "both";
 
 export type ThemeMode = "light" | "dark";
 
+export type Gender = "boy" | "girl" | "other";
+
 export interface BabyProfile {
     id?: number;
     name: string;
     birthdate?: number | null; // epoch ms
+    gender?: Gender | null;
     householdId?: string | null;
 }
 

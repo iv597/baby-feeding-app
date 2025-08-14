@@ -32,6 +32,7 @@ export async function initializeDatabase(): Promise<void> {
       uuid TEXT UNIQUE,
       name TEXT NOT NULL,
       birthdate INTEGER,
+      gender TEXT,
       householdId TEXT,
       updatedAt INTEGER NOT NULL DEFAULT 0,
       deleted INTEGER NOT NULL DEFAULT 0
@@ -150,6 +151,9 @@ export async function initializeDatabase(): Promise<void> {
         await db.execAsync(
             `ALTER TABLE app_settings ADD COLUMN feedReminderMinutes INTEGER NOT NULL DEFAULT 180`
         );
+    }
+    if (!(await columnExists("babies", "gender"))) {
+        await db.execAsync(`ALTER TABLE babies ADD COLUMN gender TEXT`);
     }
     // Ensure settings row exists
     const row = await db.getFirstAsync<{ id: number }>(
@@ -305,8 +309,15 @@ export async function createBaby(baby: BabyProfile): Promise<number> {
     }
 
     const res = await db.runAsync(
-        `INSERT INTO babies (uuid, name, birthdate, householdId, updatedAt, deleted) VALUES (?, ?, ?, ?, ?, 0)`,
-        [uuid, baby.name, baby.birthdate ?? null, householdId, now]
+        `INSERT INTO babies (uuid, name, birthdate, gender, householdId, updatedAt, deleted) VALUES (?, ?, ?, ?, ?, ?, 0)`,
+        [
+            uuid,
+            baby.name,
+            baby.birthdate ?? null,
+            baby.gender ?? null,
+            householdId,
+            now,
+        ]
     );
     return res.lastInsertRowId as number;
 }
@@ -314,7 +325,7 @@ export async function createBaby(baby: BabyProfile): Promise<number> {
 export async function listBabies(): Promise<BabyProfile[]> {
     const db = await getDb();
     return db.getAllAsync<BabyProfile>(
-        `SELECT id, name, birthdate, householdId FROM babies WHERE deleted = 0 ORDER BY id ASC`
+        `SELECT id, name, birthdate, gender, householdId FROM babies WHERE deleted = 0 ORDER BY id ASC`
     );
 }
 
@@ -331,6 +342,7 @@ export async function upsertBabyFromRemote(
     uuid: string,
     name: string,
     birthdate: number | null,
+    gender: string | null,
     updatedAt: number,
     deleted: boolean
 ): Promise<number> {
@@ -366,10 +378,11 @@ export async function upsertBabyFromRemote(
 
     if (existing) {
         await db.runAsync(
-            `UPDATE babies SET name = ?, birthdate = ?, householdId = ?, updatedAt = ?, deleted = ? WHERE id = ?`,
+            `UPDATE babies SET name = ?, birthdate = ?, gender = ?, householdId = ?, updatedAt = ?, deleted = ? WHERE id = ?`,
             [
                 name,
                 birthdate,
+                gender,
                 householdId,
                 updatedAt,
                 deleted ? 1 : 0,
@@ -379,8 +392,16 @@ export async function upsertBabyFromRemote(
         return existing.id;
     } else {
         const res = await db.runAsync(
-            `INSERT INTO babies (uuid, name, birthdate, householdId, updatedAt, deleted) VALUES (?, ?, ?, ?, ?, ?)`,
-            [uuid, name, birthdate, householdId, updatedAt, deleted ? 1 : 0]
+            `INSERT INTO babies (uuid, name, birthdate, gender, householdId, updatedAt, deleted) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+            [
+                uuid,
+                name,
+                birthdate,
+                gender,
+                householdId,
+                updatedAt,
+                deleted ? 1 : 0,
+            ]
         );
         return res.lastInsertRowId as number;
     }
@@ -451,6 +472,7 @@ export async function getLocalBabiesChangedSince(since: number): Promise<
         uuid: string;
         name: string;
         birthdate: number | null;
+        gender: string | null;
         householdId: string | null;
         updatedAt: number;
         deleted: number;
@@ -458,7 +480,7 @@ export async function getLocalBabiesChangedSince(since: number): Promise<
 > {
     const db = await getDb();
     return db.getAllAsync<any>(
-        `SELECT uuid, name, birthdate, householdId, updatedAt, deleted FROM babies WHERE updatedAt > ?`,
+        `SELECT uuid, name, birthdate, gender, householdId, updatedAt, deleted FROM babies WHERE updatedAt > ?`,
         [since]
     );
 }

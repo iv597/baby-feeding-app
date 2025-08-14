@@ -17,7 +17,7 @@ import {
     getHouseholdId,
     softDeleteBaby,
 } from "../db";
-import { BabyProfile, ThemeMode } from "../types";
+import { BabyProfile, ThemeMode, Gender } from "../types";
 import { createHousehold, joinHousehold, syncNow } from "../sync/service";
 import { AppState } from "react-native";
 
@@ -29,7 +29,11 @@ interface AppContextValue {
     loading: boolean;
     householdId?: string | null;
     syncStatus: "idle" | "syncing" | "error";
-    addBaby: (name: string, birthdate?: number | null) => Promise<void>;
+    addBaby: (
+        name: string,
+        birthdate?: number | null,
+        gender?: Gender | null
+    ) => Promise<void>;
     deleteBaby: (babyId: number) => Promise<void>; // New: soft delete baby
     selectBaby: (babyId: number) => Promise<void>;
     toggleBabySelection: (babyId: number) => Promise<void>; // New: toggle baby selection
@@ -123,11 +127,27 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }, []);
 
     const addBaby = useCallback(
-        async (name: string, birthdate?: number | null) => {
-            const id = await createBaby({ name, birthdate: birthdate ?? null });
+        async (
+            name: string,
+            birthdate?: number | null,
+            gender?: Gender | null
+        ) => {
+            const id = await createBaby({
+                name,
+                birthdate: birthdate ?? null,
+                gender: gender ?? null,
+            });
             await refreshBabies();
             await setActiveBabyId(id);
             setActive(id);
+
+            // Add newly created baby to active babies list
+            setActiveBabyIds((prev) => {
+                if (!prev.includes(id)) {
+                    return [...prev, id];
+                }
+                return prev;
+            });
 
             // Auto-sync after creating a baby
             try {
