@@ -18,6 +18,7 @@ import {
     HelperText,
     Divider,
     Avatar,
+    useTheme,
 } from "react-native-paper";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { useAppContext } from "../context/AppContext";
@@ -34,6 +35,7 @@ const SwipeableBabyItem = ({
     confirmDeleteBaby,
     onEditBaby,
 }: any) => {
+    const theme = useTheme();
     const translateX = useRef(new Animated.Value(0)).current;
     const [isSwipeOpen, setIsSwipeOpen] = useState(false);
 
@@ -109,7 +111,7 @@ const SwipeableBabyItem = ({
             <Animated.View
                 style={{
                     transform: [{ translateX }],
-                    backgroundColor: "white",
+                    backgroundColor: theme.colors.surface,
                 }}
                 {...panResponder.panHandlers}
             >
@@ -168,7 +170,7 @@ const SwipeableBabyItem = ({
                     )}
                     style={{
                         backgroundColor: activeBabyIds.includes(baby.id!)
-                            ? "#f8f9fa"
+                            ? theme.colors.secondaryContainer
                             : undefined,
                         borderRadius: 8,
                         marginBottom: 4,
@@ -180,6 +182,7 @@ const SwipeableBabyItem = ({
 };
 
 export default function SettingsScreen() {
+    const theme = useTheme();
     const {
         babies,
         activeBabyId,
@@ -431,7 +434,10 @@ export default function SettingsScreen() {
                                 onEditBaby={onEditBaby}
                             />
                             <View
-                                style={{ height: 1, backgroundColor: "#eee" }}
+                                style={{
+                                    height: 1,
+                                    backgroundColor: theme.colors.outline,
+                                }}
                             />
                         </View>
                     ))}
